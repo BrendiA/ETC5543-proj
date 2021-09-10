@@ -1,0 +1,143 @@
+---
+title: "index"
+author: "Brendi Ang"
+date: "10/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-library, include=FALSE}
+library(tidyverse)
+library(janitor)
+library(naniar)
+library(here)
+library(readxl)
+```
+
+## Data and Motivation
+
+```{r read-in}
+# ----- Read-in data
+
+# --- Subject enrolment numbers data
+
+# Concatenate file names
+filenames <- paste0("data/","qcaa_stats_subj_part_", c("2020", "2021", "2022"), ".xlsx")
+
+# Read-in data
+subj_2020 <- readxl::read_xlsx(here::here(filenames[1]), sheet = 1, col_types = "text")
+subj_2021 <- readxl::read_xlsx(here::here(filenames[2]), sheet = 1, col_types = "text")
+subj_2022 <- readxl::read_xlsx(here::here(filenames[3]), sheet = 1, col_types = "text")
+
+# Subject enrolments based on new QCE system
+subj_new <- rbind(subj_2020, subj_2021, subj_2022) %>% 
+  # Remove spaces & upper-case letters in variable names
+  janitor::clean_names() %>% 
+  rename(doe_centre_code = do_e_centre_code)
+```
+
+```{r}
+# ----- View missing values in the dataset
+
+# View missing values for dataset
+subj_new %>% 
+  vis_miss()
+
+# View missing values for enrolment figures
+subj_new %>% 
+  select(unit_1_enrolments:unit_4_enrolments) %>% 
+  vis_miss()
+
+# Combination of missing values
+subj_new %>% 
+  gg_miss_upset()
+```
+
+- Nauru Secondary school, missing `doe_centre_code`, `school_postcode`, `qcaa_district`
+
+```{r}
+# ----- Change data types
+
+subj_new <- subj_new %>% 
+  mutate(
+    completion_year = as.factor(completion_year),
+    qcaa_subject_id = as.factor(qcaa_subject_id),
+    subject_type = as.factor(subject_type),
+    qcaa_school_id = as.factor(qcaa_school_id),
+    sector = as.factor(sector),
+    school_postcode = as.factor(school_postcode),
+    qcaa_district = as.factor(qcaa_district)
+  ) %>% 
+  # Remove Nauru Secondary school
+  filter(!is.na(qcaa_district))
+```
+
+```{r}
+# ----- Impute missing values in enrolment numbers with 0
+
+subj_new <- subj_new %>% 
+  # Replace missing values in enrolment with 0
+  mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ replace_na(.x, 0))) 
+```
+
+```{r}
+# ----- Enrolment for mathematics and science subjects from 2020 - 2021 (Sep)
+
+# Enrolment for Mathematics
+math_new <- subj_new %>% 
+  filter(subject_name %in% c("General Mathematics",
+                             "Mathematical Methods",
+                             "Specialist Mathematics",
+                             # Applied
+                             "Essential Mathematics", 
+                             # Short Courses
+                             "Numeracy")) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Mathematics")
+
+# Enrolment for Sciences
+sci_new <- subj_new %>% 
+  filter(subject_name %in% c(# General
+                             "Agricultural Science",
+                             "Biology",
+                             "Chemistry", 
+                             "Earth and Environmental Science",
+                             "Marine Science",
+                             "Physics",
+                             "Psychology",
+                             # Applied
+                             "Agricultural Practices",
+                             "Aquatic Practices",
+                             "Science in Practice"
+                             )) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Sciences")
+
+math_sci_new <- rbind(math_new, sci_new)
+```
+
+## Problems with Dataset
+
+```{r, warning=FALSE, eval=FALSE}
+# ---- Problem with CSV file
+subj_old <- read_csv(here::here("data/qcaa_stats_subj_part_1992-2019.csv")) %>% janitor::clean_names()
+
+# ----- Problematic variables
+
+subj_old %>% 
+  filter(!is.na(x13))
+```
+
+- Parts of `Subject name` are located in Subject type
+  - *e.g.* subject "Film, Television & New Media" categorised as "Film" in `subject_name` and "Television and New Media" in `subject_type`
+- Some `year_11_enrolments` are mistaken to be School name and vice versa
+  - Due to these errors, most entries are wrongly
+- Fortunately, these errors can be found easily, as they have an extra variable `X13`
+  
+
+
+
+
