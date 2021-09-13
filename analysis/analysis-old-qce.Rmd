@@ -1,0 +1,189 @@
+---
+title: "Untitled"
+author: "Brendi Ang"
+date: "13/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data and Motivation
+
+```{r read-in, warning=FALSE}
+# ----- Read-in data
+
+# Enrolments for all subjects from 1992 to 2019
+subj_old <- read_csv(here::here("data/qcaa_stats_subj_part_1992-2019.csv")) %>% 
+  # Remove problematic entries
+  filter(is.na(X13)) %>% 
+  select(-c(X13, X14))
+```
+
+**Problems with dataset**
+- Parts of `Subject name` are located in Subject type
+  - *e.g.* subject "Film, Television & New Media" categorised as "Film" in `subject_name` and "Television and New Media" in `subject_type`
+- Some `year_11_enrolments` are mistaken to be School name and vice versa
+  - Due to these errors, most entries are wrongly
+- Fortunately, these errors can be found easily, as they have an extra variable `X13`
+
+```{r}
+# ----- Clean variable names
+
+subj_old <- subj_old %>% 
+  janitor::clean_names() %>% 
+  rename(doe_centre_code = do_e_centre_code,
+         # Consistent with new qce dataset
+         completion_year = cohort_year) 
+```
+
+Variables for `subj_old` dataset:
+- `completion_year`: Cohort's year of completion 
+- `qcaa_subject_id`: Subject ID
+- `subject_name`: Subject name
+- `subject_type`: Type of subject (General, Applied or Short courses)
+- `doe_centre_code`: Department of Education Centre Code 
+- `qcaa_school_id`: School ID
+- `school_name`: School Name             
+- `year_11_enrolments`: Number of students enrolled in year 11
+- `year_12_enrolments`: Number of students enrolled in year 12
+- `sector`: School sector (Government, Independent, Catholic)
+- `school_postcode`: School postcode
+- `qcaa_district`: School District
+
+```{r}
+# ----- View missing values in the dataset
+
+# View missing values for enrolment figures
+subj_old %>% 
+  select(year_11_enrolments:year_12_enrolments) %>% 
+  vis_miss()
+
+# Combination of missing values
+subj_old %>% 
+  gg_miss_upset()
+```
+
+- Missing values are plausible, probably relates to subjects in which all enrolments are year 12 enrolments
+- 20 schools have missing `doe_centre_code`
+
+```{r}
+# ----- Change data types
+
+subj_old <- subj_old %>% 
+  mutate(
+    completion_year = as.factor(completion_year),
+    qcaa_subject_id = as.factor(qcaa_subject_id),
+    subject_type = as.factor(subject_type),
+    qcaa_school_id = as.factor(qcaa_school_id),
+    sector = as.factor(sector),
+    school_postcode = as.factor(school_postcode),
+    qcaa_district = as.factor(qcaa_district)
+  ) 
+```
+
+```{r}
+# ----- Impute missing values in enrolment numbers with 0
+
+subj_old <- subj_old %>% 
+  # Replace missing values in enrolment with 0
+  mutate(across(.cols = year_11_enrolments:year_12_enrolments, ~ replace_na(.x, 0))) %>% 
+  mutate(across(.cols = year_11_enrolments:year_12_enrolments, ~ as.numeric(.x)))
+```
+
+```{r}
+math_old <- subj_old %>% 
+  filter(subject_name %in% c("Mathematics A", "Mathematics B", "Mathematics C")) %>% 
+  # Consistent with names of new QCE system
+  mutate(subject_name = case_when(
+    subject_name == "Mathematics A" ~ "General Mathematics",
+    subject_name == "Mathematics B" ~ "Mathematical Methods",
+    subject_name == "Mathematics C" ~ "Specialist Mathematics",
+  )) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Mathematics")
+
+# Enrolment for Sciences
+sci_old <- subj_old %>% 
+  filter(subject_name %in% c("Agricultural Science",
+                             "Biology",
+                             "Chemistry", 
+                             "Marine Science",
+                             "Physics",
+                             "Agricultural Practices",
+                             "Aquatic Practices",
+                             "Science in Practice"
+                             )) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Sciences")
+
+# Combine Maths and Science subjects for the old QCE system
+mathsci_old <- rbind(math_old, sci_old)
+
+# Convert data to long form for plotting
+mathsci_old_long <- mathsci_old %>% 
+  pivot_longer(cols = year_11_enrolments:year_12_enrolments,
+               names_to = "unit",
+               values_to = "enrolments") 
+```
+- Two science subjects (Psychology and Earth and Environment Science) were added to the syllabus
+
+## Exploratory Data Analysis (Old QCE system)
+
+```{r}
+# ----- 
+mathsci_old_long %>% 
+  filter(subject == "Mathematics") %>% 
+  ggplot() +
+  geom_boxplot(aes(x = subject_name, y = enrolments, fill = unit)) +
+  facet_wrap(~ subject_name,
+             scales = "free_x")
+
+mathsci_old_long %>% 
+  filter(subject == "Mathematics") %>% 
+  ggplot(aes(x = unit, y = enrolments)) +
+  geom_violin(aes(fill = unit)) +
+  geom_boxplot(width = 0.3,
+               outlier.alpha = 0.5) +
+  facet_wrap(~ subject_name) +
+  colorspace::scale_fill_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5),
+        legend.position = "none") 
+
+mathsci_old_long %>% 
+  ggplot(aes(x = completion_year, y = enrolments)) + 
+  geom_boxplot() +
+  facet_wrap(~ subject_name, scales = "free_x")
+
+
+
+# ----- Year 11 and Year 12 enrolments for Mathematical Methods subject
+# Too many schools to identify patterns
+## Do a plotly?
+ggplot() +
+  geom_line(aes(group = qcaa_school_id, x = completion_year, y = enrolments),
+            alpha = 0.2, data = filter(mathsci_old_long,subject_name == "Mathematical Methods")) +
+  geom_line(aes(group = qcaa_school_id, x = completion_year, y = enrolments), colour = "red",
+            , data = filter(mathsci_old_long, subject_name == "Mathematical Methods" &
+                                              doe_centre_code == 2003)) +
+  facet_wrap(~unit) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
