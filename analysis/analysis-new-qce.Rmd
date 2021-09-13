@@ -1,0 +1,398 @@
+---
+title: "index"
+author: "Brendi Ang"
+date: "10/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load-library, include=FALSE}
+library(tidyverse)
+library(janitor)
+library(naniar)
+library(here)
+library(readxl)
+
+# Set global theme for all ggplot12 objects
+ggplot2::theme_set(theme_bw())
+```
+
+## Data and Motivation
+
+```{r read-in, warning=FALSE}
+# ----- Read-in data
+
+# --- Enrolments for all subjects from 2020 to 2021 (Sep)
+
+# Concatenate file names
+filenames <- paste0("data/","qcaa_stats_subj_part_", c("2020", "2021", "2022"), ".xlsx")
+
+# Read-in data
+subj_2020 <- readxl::read_xlsx(here::here(filenames[1]), sheet = 1, col_types = "text")
+subj_2021 <- readxl::read_xlsx(here::here(filenames[2]), sheet = 1, col_types = "text")
+subj_2022 <- readxl::read_xlsx(here::here(filenames[3]), sheet = 1, col_types = "text")
+```
+
+```{r}
+# ----- Clean variable names
+
+# --- Enrolments based on new QCE system
+
+subj_new <- rbind(subj_2020, subj_2021, subj_2022) %>% 
+  # Remove spaces & upper-case letters in variable names
+  janitor::clean_names() %>% 
+  rename(doe_centre_code = do_e_centre_code)
+```
+
+Variables for `subj_new` dataset:
+- `completion_year`: Cohort's year of completion 
+- `qcaa_subject_id`: Subject ID
+- `subject_name`: Subject name
+- `subject_type`: Type of subject (General, Applied or Short courses)
+- `doe_centre_code`: Department of Education Centre Code 
+- `qcaa_school_id`: School ID
+- `school_name`: School Name             
+- `unit_1_enrolments`: Number of students enrolled in unit 1
+- `unit_2_enrolments`: Number of students enrolled in unit 2
+- `unit_3_enrolments`: Number of students enrolled in unit 3      
+- `unit_4_enrolments`: Number of students enrolled in unit 4
+- `short_course_enrolments`: Number of students enrolled as short course enrolment
+- `sector`: School sector (Government, Independent, Catholic)
+- `school_postcode`: School postcode
+- `qcaa_district`: School District
+
+```{r}
+# ----- View missing values in the dataset
+
+# View missing values for dataset
+subj_new %>% 
+  vis_miss()
+
+# View missing values for enrolment figures
+subj_new %>% 
+  select(unit_1_enrolments:unit_4_enrolments) %>% 
+  vis_miss()
+
+# Combination of missing values
+subj_new %>% 
+  gg_miss_upset()
+```
+
+- Nauru Secondary school, missing `doe_centre_code`, `school_postcode`, `qcaa_district`
+
+```{r}
+# ----- Change data types
+
+subj_new <- subj_new %>% 
+  mutate(
+    completion_year = as.factor(completion_year),
+    qcaa_subject_id = as.factor(qcaa_subject_id),
+    subject_type = as.factor(subject_type),
+    qcaa_school_id = as.factor(qcaa_school_id),
+    sector = as.factor(sector),
+    school_postcode = as.factor(school_postcode),
+    qcaa_district = as.factor(qcaa_district)
+  ) %>% 
+  # Remove Nauru Secondary school
+  filter(!is.na(qcaa_district))
+```
+
+```{r}
+# ----- Impute missing values in enrolment numbers with 0
+
+subj_new <- subj_new %>% 
+  # Replace missing values in enrolment with 0
+  mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ replace_na(.x, 0))) %>% 
+  mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ as.numeric(.x)))
+```
+
+```{r}
+# ----- Enrolment for mathematics and science subjects from 2020 - 2021 (Sep)
+
+# Enrolment for Mathematics
+math_new <- subj_new %>% 
+  filter(subject_name %in% c("General Mathematics",
+                             "Mathematical Methods",
+                             "Specialist Mathematics",
+                             # Applied
+                             "Essential Mathematics", 
+                             # Short Courses
+                             "Numeracy")) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Mathematics")
+
+# Enrolment for Sciences
+sci_new <- subj_new %>% 
+  filter(subject_name %in% c(# General
+                             "Agricultural Science",
+                             "Biology",
+                             "Chemistry", 
+                             "Earth and Environmental Science", # new
+                             "Marine Science",
+                             "Physics",
+                             "Psychology", # New
+                             # Applied
+                             "Agricultural Practices",
+                             "Aquatic Practices",
+                             "Science in Practice"
+                             )) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Sciences")
+
+# Combine maths and sciences enrolments
+mathsci_new <- rbind(math_new, sci_new)
+
+# Convert data to long form for plotting
+mathsci_new_long <- mathsci_new %>% 
+  pivot_longer(cols = unit_1_enrolments:unit_4_enrolments,
+               names_to = "unit",
+               values_to = "enrolments") %>% 
+  # Remove short course subject 
+  filter(subject_name != "Numeracy")  
+```
+
+## Exploratory Data Analysis (New QCE system)
+
+### Maths
+
+```{r}
+# ----- Total enrolments (all schools) per unit for Mathematics subjects
+
+mathsci_new_long %>% 
+  filter(subject == "Mathematics",
+         subject_name != "Numeracy") %>% 
+  group_by(subject_name, unit, subject_type, completion_year) %>% 
+  # Compute total enrolments for each subject
+  summarise(total_enrolments = sum(enrolments), .groups = "drop") %>% 
+  ggplot() +
+  geom_col(aes(x = completion_year, y = total_enrolments, fill = unit),
+           position = "dodge") +
+  colorspace::scale_fill_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5),
+        legend.position = "bottom") +
+  facet_wrap(~ subject_name, scales = "free_x", nrow = 1) +
+  labs(title = "Total enrolment for each Math Subject",
+       x = "Completion Year",
+       y = "Total Enrolment (All schools)")
+```
+
+- Most students are enrolled in Essential Mathematics and General Mathematics
+- On average, there are marginally more students enrolling in mathematics subjects in unit 1 and 2 than unit 3 and 4
+
+```{r}
+# ---- Total enrolment (per school) for each Maths subject 
+
+mathsci_new_long %>% 
+  filter(subject == "Mathematics") %>% 
+  ggplot() + 
+  geom_boxplot(aes(x = unit, y = enrolments, fill = completion_year),
+               outlier.alpha = 0.5) +
+  colorspace::scale_fill_discrete_sequential() +
+  facet_wrap(~ subject_name)+
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5)) 
+
+mathsci_new_long %>% 
+  filter(subject == "Mathematics") %>% 
+  ggplot(aes(x = unit, y = enrolments)) + 
+  geom_violin(aes(fill = unit)) +
+  geom_boxplot(width = 0.3,
+               outlier.alpha = 0.5) +
+  facet_wrap(~ subject_name) +
+  colorspace::scale_fill_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5),
+        legend.position = "none") 
+```
+
+### Science
+
+```{r}
+# ----- Total enrolments (all schools) per unit for Science subjects
+
+mathsci_new_long %>% 
+  filter(subject == "Sciences") %>% 
+  group_by(subject_name, unit, subject_type, completion_year) %>% 
+  # Compute total enrolments for each subject
+  summarise(total_enrolments = sum(enrolments), .groups = "drop") %>% 
+  ggplot() +
+  geom_col(aes(x = completion_year, y = total_enrolments, fill = unit),
+           position = "dodge") +
+  colorspace::scale_fill_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5),
+        legend.position = "bottom") +
+  facet_wrap(~ subject_name, scales = "free_x", nrow = 1) +
+  labs(title = "Total enrolment for each Math Subject",
+       x = "Completion Year",
+       y = "Total Enrolment (All schools)")
+```
+
+- Biology, chemistry and physics and psychology seems to be the most popular subjects 
+
+```{r}
+# ---- Total enrolment (per school) for each Science subject 
+
+mathsci_new_long %>% 
+  filter(subject == "Sciences") %>% 
+  ggplot() + 
+  geom_boxplot(aes(x = unit, y = enrolments, fill = completion_year),
+               outlier.alpha = 0.5) +
+  colorspace::scale_fill_discrete_sequential() +
+  facet_wrap(~ subject_name)+
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5)) 
+
+mathsci_new_long %>% 
+  filter(subject == "Sciences") %>% 
+  ggplot(aes(x = unit, y = enrolments)) + 
+  geom_violin(aes(fill = unit)) +
+  geom_boxplot(width = 0.3,
+               outlier.alpha = 0.5) +
+  facet_wrap(~ subject_name) +
+  colorspace::scale_fill_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5),
+        legend.position = "none") 
+```
+
+
+### Maths and Science
+
+```{r, fig.height = 8}
+
+# ----- Total enrolments for each subject, faceted by Maths and Science
+
+mathsci_new_long %>% 
+  group_by(subject_name, unit, subject) %>% 
+  # Compute total enrolments for each subject
+  summarise(total_enrolments = sum(enrolments), .groups = "drop") %>%
+  ggplot() +
+  geom_line(aes(x = subject_name, y = total_enrolments, group = unit, colour = unit)) +
+  geom_point(aes(x = subject_name, y = total_enrolments, colour = unit)) +
+  facet_wrap(~ subject, scales = "free", nrow = 2) +
+  theme(axis.text.x = element_text(angle = 90),
+        legend.position = "bottom") +
+  colorspace::scale_colour_discrete_sequential()
+
+mathsci_new_long %>% 
+  group_by(subject_name, unit, subject) %>% 
+  # Compute total enrolments for each subject
+  summarise(total_enrolments = sum(enrolments), .groups = "drop") %>% 
+  ggplot() +
+  geom_col(aes(x = subject_name, y = total_enrolments, fill = unit),
+           position = "dodge") + 
+  colorspace::scale_fill_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5),
+        legend.position = "bottom") +
+  facet_wrap(~ subject, scales = "free_x")
+```
+
+- Essential maths and general maths seems to be the common subjects among mathematics and science subjects
+- Agricultural practice, agricultrual science and marine science have relatively low enrolment numbers
+
+```{r}
+# Distribution of enrolments for each subject by sector
+library(ggridges)
+
+# By sector
+mathsci_new_long %>% 
+  ggplot() +
+  ggridges::geom_density_ridges(aes(x = enrolments, y = subject_name, fill = sector, point_fill = sector),
+                                alpha = 0.6) +
+  theme_bw() +
+  # scale_fill_brewer(palette = "Dark2")
+  colorspace::scale_fill_discrete_qualitative()
+```
+
+- The distribution of subjects across all schools are right skewed
+  - This may be attributed to the different school sizes & thus capacity of students in a subject
+
+
+```{r}
+# ----- Enrolment for each subject by sector
+
+mathsci_new_long %>% 
+  group_by(subject_name,sector, unit) %>%
+  # Compute total enrolment for each unit by sector
+  summarise(total_enrolments = sum(enrolments), .groups = "drop") %>% 
+  ggplot() +
+  geom_col(aes(x = sector, 
+               y = total_enrolments,
+               fill = unit),
+           position = "dodge") +
+  facet_wrap(~ subject_name,
+             scales = "free") +
+  colorspace::scale_fill_discrete_sequential()
+```
+
+- Government sector seems to have the most enrolments among all three sectors
+- In most cases, Independent and Catholic schools have similar enrolment numbers 
+  - except for Agricultural Science, Specialist Mathematics, where enrolment were significant higher in Independent schools than Catholic schools
+
+### Maths and Science (By proportion)
+
+```{r}
+# Compute size of cohort for each year
+cohort_size <- mathsci_new_long %>% 
+  group_by(completion_year) %>% 
+  summarise(cohort_size = sum(enrolments), .groups = "drop") 
+
+cohort_size
+```
+
+- Enrolment numbers are scaled by the size of the cohort 
+
+```{r}
+# ----- Proportion of students enrolled in the subject for each cohort
+
+# Compute proportion of students enrolled in a subject by cohort size 
+## Total enrolments in a subject / size of cohort 
+mathsci_new_prop <- mathsci_new_long %>% 
+  group_by(subject_name, completion_year, subject) %>% 
+  summarise(total_enrolments = sum(enrolments), .groups = "drop") %>% 
+  left_join(cohort_size, by = "completion_year") %>% 
+  mutate(enrolment_prop = (total_enrolments/cohort_size)*100) %>% 
+  select(subject_name:subject, enrolment_prop)
+
+# Parallel Coordinate plot
+ggplot(mathsci_new_prop) +
+  geom_line(aes(x = subject_name, y = enrolment_prop, group = completion_year, colour = completion_year)) +
+  geom_point(aes(x = subject_name, y = enrolment_prop, colour = completion_year)) +
+  colorspace::scale_colour_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5)) +
+  facet_wrap(~ subject, scales = "free_x")
+
+# Side-by-side bar plot
+ggplot(mathsci_new_prop) +
+  geom_col(aes(x = subject_name, y = enrolment_prop, fill = completion_year),
+           position = "dodge") +
+  colorspace::scale_fill_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  facet_wrap(~ subject, scales = "free_x")
+```
+
+- For Mathematics subjects, enrolment figures seems to decrease for all subjects except Essential mathematics
+- For science subjects, there is a clear increase in Psychology and Aquatic Practices subjects over the years
+
+```{r, fig.height = 8}
+# ----- Proportion of students enrolled in the subject for each cohort and unit
+
+mathsci_new_unit_prop <- mathsci_new_long %>%
+  group_by(subject_name, completion_year, unit, subject) %>% 
+  summarise(total_enrolments = sum(enrolments), .groups = "drop") %>% 
+  left_join(cohort_size, by = "completion_year") %>% 
+  mutate(enrolment_prop = (total_enrolments/cohort_size)*100) %>% 
+  select(subject_name:subject, enrolment_prop)
+
+mathsci_new_unit_prop %>% 
+  select(subject_name:subject, enrolment_prop) %>% 
+  ggplot() +
+  geom_line(aes(x = unit, y = enrolment_prop, group = completion_year, colour = completion_year)) + 
+  geom_point(aes(x = unit, y = enrolment_prop, colour = completion_year)) + 
+  facet_wrap(~ subject_name,
+             scales = "free") +
+  colorspace::scale_colour_discrete_sequential() +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5))
+```
+
+## Mixed Effect Models
+
