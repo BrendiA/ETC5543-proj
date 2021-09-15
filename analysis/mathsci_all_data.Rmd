@@ -1,0 +1,201 @@
+---
+title: "mixed-effect-models"
+author: "Brendi Ang"
+date: "15/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(lmerTest)
+```
+
+```{r}
+# ----- Read-in data
+
+# --- Enrolments for all subjects from 1992 to 2019
+subj_old <- read_csv(here::here("data/qcaa_stats_subj_part_1992-2019.csv")) %>% 
+  # Remove problematic entries
+  filter(is.na(X13)) %>% 
+  select(-c(X13, X14))
+
+# --- Enrolments for all subjects from 2020 to 2021 (Sep)
+
+# Concatenate file names
+filenames <- paste0("data/","qcaa_stats_subj_part_", c("2020", "2021", "2022"), ".xlsx")
+
+# Read-in data
+subj_2020 <- readxl::read_xlsx(here::here(filenames[1]), sheet = 1, col_types = "text")
+subj_2021 <- readxl::read_xlsx(here::here(filenames[2]), sheet = 1, col_types = "text")
+subj_2022 <- readxl::read_xlsx(here::here(filenames[3]), sheet = 1, col_types = "text")
+```
+
+```{r}
+# ----- Clean variable names
+
+# --- Enrolments based on old QCE system
+
+subj_old <- subj_old %>% 
+  janitor::clean_names() %>% 
+  rename(doe_centre_code = do_e_centre_code,
+         # Consistent with new qce dataset
+         completion_year = cohort_year) 
+
+# --- Enrolments based on new QCE system
+
+subj_new <- rbind(subj_2020, subj_2021, subj_2022) %>% 
+  # Remove spaces & upper-case letters in variable names
+  janitor::clean_names() %>% 
+  rename(doe_centre_code = do_e_centre_code)
+```
+
+```{r}
+# ----- Change data types
+
+subj_old <- subj_old %>% 
+  mutate(
+    completion_year = as.factor(completion_year),
+    qcaa_subject_id = as.factor(qcaa_subject_id),
+    subject_type = as.factor(subject_type),
+    qcaa_school_id = as.factor(qcaa_school_id),
+    sector = as.factor(sector),
+    school_postcode = as.factor(school_postcode),
+    qcaa_district = as.factor(qcaa_district)
+  ) 
+
+subj_new <- subj_new %>% 
+  mutate(
+    completion_year = as.factor(completion_year),
+    qcaa_subject_id = as.factor(qcaa_subject_id),
+    subject_type = as.factor(subject_type),
+    qcaa_school_id = as.factor(qcaa_school_id),
+    sector = as.factor(sector),
+    school_postcode = as.factor(school_postcode),
+    qcaa_district = as.factor(qcaa_district)
+  ) %>% 
+  # Remove Nauru Secondary school
+  filter(!is.na(qcaa_district))
+```
+
+```{r}
+# ----- Impute missing values in enrolment numbers with 0
+
+subj_old <- subj_old %>% 
+  # Replace missing values in enrolment with 0
+  mutate(across(.cols = year_11_enrolments:year_12_enrolments, ~ replace_na(.x, 0))) %>% 
+  mutate(across(.cols = year_11_enrolments:year_12_enrolments, ~ as.numeric(.x)))
+
+subj_new <- subj_new %>% 
+  # Replace missing values in enrolment with 0
+  mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ replace_na(.x, 0))) %>% 
+  mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ as.numeric(.x)))
+```
+
+```{r}
+# ----- Enrolment for mathematics and science subjects 
+
+# --- Old QCE system
+
+math_old <- subj_old %>% 
+  filter(subject_name %in% c("Mathematics A", "Mathematics B", "Mathematics C")) %>% 
+  # Consistent with names of new QCE system
+  mutate(subject_name = case_when(
+    subject_name == "Mathematics A" ~ "General Mathematics",
+    subject_name == "Mathematics B" ~ "Mathematical Methods",
+    subject_name == "Mathematics C" ~ "Specialist Mathematics",
+  )) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Mathematics")
+
+# Enrolment for Sciences
+sci_old <- subj_old %>% 
+  filter(subject_name %in% c("Agricultural Science",
+                             "Biology",
+                             "Chemistry", 
+                             "Marine Science",
+                             "Physics",
+                             "Agricultural Practices",
+                             "Aquatic Practices",
+                             "Science in Practice"
+                             )) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Sciences")
+
+# Combine Maths and Science subjects for the old QCE system
+mathsci_old <- rbind(math_old, sci_old)
+
+
+# --- New QCE system
+
+# Enrolment for Mathematics
+math_new <- subj_new %>% 
+  filter(subject_name %in% c("General Mathematics",
+                             "Mathematical Methods",
+                             "Specialist Mathematics",
+                             # Applied
+                             "Essential Mathematics", 
+                             # Short Courses
+                             "Numeracy")) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Mathematics")
+
+# Enrolment for Sciences
+sci_new <- subj_new %>% 
+  filter(subject_name %in% c(# General
+                             "Agricultural Science",
+                             "Biology",
+                             "Chemistry", 
+                             "Earth and Environmental Science", # new
+                             "Marine Science",
+                             "Physics",
+                             "Psychology", # New
+                             # Applied
+                             "Agricultural Practices",
+                             "Aquatic Practices",
+                             "Science in Practice"
+                             )) %>% 
+  # Create new variable to distinguish maths and science
+  mutate(subject = "Sciences")
+
+# Combine maths and sciences enrolments
+mathsci_new <- rbind(math_new, sci_new)
+```
+
+```{r}
+# ----- Convert to long data 
+## Required as old system enrolments split into 2 grouops (year 11 and year 12) but
+## New system enrolments split into 4 groups (unit 1, 2, 3 & 4)
+
+mathsci_new_long <- mathsci_new %>% 
+  pivot_longer(cols = unit_1_enrolments:unit_4_enrolments,
+               names_to = "unit",
+               values_to = "enrolments") %>% 
+  # Remove short course subject 
+  filter(subject_name != "Numeracy")  %>% 
+  select(-short_course_enrolments)
+
+mathsci_old_long <- mathsci_old %>% 
+  pivot_longer(cols = year_11_enrolments:year_12_enrolments,
+               names_to = "unit",
+               values_to = "enrolments") 
+
+# Combine data
+mathsci_all_long <- rbind(mathsci_old_long, mathsci_new_long)
+```
+
+```{r}
+# ----- Write data
+
+# write_csv(mathsci_all_long, here::here("data/mathsci_all_long.csv"))
+```
+
+
+
+
+
+
+
