@@ -161,7 +161,9 @@ sci_new <- subj_new %>%
   mutate(subject = "Sciences")
 
 # Combine maths and sciences enrolments
-mathsci_new <- rbind(math_new, sci_new)
+mathsci_new <- rbind(math_new, sci_new) %>% 
+  # Remove short courses
+  filter(subject_name != "Numeracy")
 ```
 
 ```{r}
