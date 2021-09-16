@@ -165,31 +165,24 @@ mathsci_new <- rbind(math_new, sci_new)
 ```
 
 ```{r}
-# ----- Convert to long data 
-## Required as old system enrolments split into 2 grouops (year 11 and year 12) but
-## New system enrolments split into 4 groups (unit 1, 2, 3 & 4)
+# Group unit 1 & 2, 3 & 4 enrolments into year 11 and year 12 enrolments respectively
+## Required as old system splits enrolments into two groups (year 11 and year 12 enrolments)
 
-mathsci_new_long <- mathsci_new %>% 
-  pivot_longer(cols = unit_1_enrolments:unit_4_enrolments,
-               names_to = "unit",
-               values_to = "enrolments") %>% 
-  # Remove short course subject 
-  filter(subject_name != "Numeracy")  %>% 
-  select(-short_course_enrolments)
+mathsci_new <- mathsci_new %>% 
+  rowwise() %>% 
+  mutate(year_11_enrolments = sum(unit_1_enrolments, unit_2_enrolments),
+         year_12_enrolments = sum(unit_3_enrolments, unit_4_enrolments)) %>% 
+  # Remove short course enrolments
+  select(-c(unit_1_enrolments:short_course_enrolments)) %>% 
+  ungroup()
 
-mathsci_old_long <- mathsci_old %>% 
-  pivot_longer(cols = year_11_enrolments:year_12_enrolments,
-               names_to = "unit",
-               values_to = "enrolments") 
-
-# Combine data
-mathsci_all_long <- rbind(mathsci_old_long, mathsci_new_long)
+mathsci_all <- rbind(mathsci_old, mathsci_new)
 ```
 
 ```{r}
 # ----- Write data
 
-# write_csv(mathsci_all_long, here::here("data/mathsci_all_long.csv"))
+write_csv(mathsci_all, here::here("data/mathsci_all.csv"))
 ```
 
 
