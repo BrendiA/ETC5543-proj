@@ -1,0 +1,33 @@
+---
+title: "analysis-gender"
+author: "Brendi Ang"
+date: "17/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(janitor)
+library(readxl)
+```
+
+```{r}
+# ----- Read-in data
+
+# --- File name
+file_path <- paste0("data/qcaa_stats_sen_subjects_", c(2008:2018), ".xlsx")
+
+# --- Reduce all .xlsx files to one data frame
+subj_group <- file_path %>% 
+  purrr::map(read_xlsx) %>% 
+  purrr::reduce(rbind)
+
+# --- Clean variable names
+subj_group <- subj_group %>% 
+  janitor::clean_names()
+```
+
