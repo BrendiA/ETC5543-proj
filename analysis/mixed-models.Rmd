@@ -26,8 +26,6 @@ ggplot2::theme_set(theme_bw())
 # Read-in data
 mathsci_all <- read_csv(here::here(data = "data/mathsci_all.csv"))
 
-
-
 # --- Clean district names
 
 # Remove 'District' in `qcaa_district` as there are repeated districts
@@ -67,28 +65,31 @@ mathsci_all_long <- mathsci_all %>%
 
 ```{r}
 mathsci_all_long %>% 
-  ggplot(aes(sample = enrolments)) +
-  geom_qq() +
-  geom_qq_line(colour = "steelblue") +
-  facet_wrap(~ subject_name)
-
-mathsci_all_long %>% 
   filter(enrolments > 0) %>% 
   ggplot() +
-  geom_boxplot(aes(x = subject_name, y = enrolments)) +
-  theme(axis.text.x = element_text(angle = 75, vjust = 0.5))
+  geom_boxplot(aes(x = subject_name, 
+                   y = enrolments,
+                   fill = unit)) +
+  theme(axis.text.x = element_text(angle = 75, vjust = 0.5)) 
 ```
 
 **qq plot**
-- Most subjects enrolments are **skewed to the right**, such as Biology, Chemistry, Essential Mathematics, General Mathematics, Mathematical Methods, Physics
+- Most subjects enrolments are **right skewed**, such as Biology, Chemistry, Essential Mathematics, General Mathematics, Mathematical Methods, Physics
   - This may be attributed to the different school sizes 
 
 
-# Mixed-Effect Models: Schools nesteed within Districts
+# Schools nested within Districts
 
-## Dataset
+Our data has 403 schools spread across 13 different districts.
 
-Run first mixed effects model with one mathematics subject (Specialist Mathematics) first.
+As enrolment number of students vary across schools at different district, mixed models may be utilised. Since various schools are within a district, school is nested within districts.
+
+Each unit (year 11 and year 12) should also be treated as random effects.
+
+
+## Subset data
+
+Run first mixed effects model with one mathematics subject (*Specialist Mathematics*) first.
 
 ```{r}
 # --- Filter Specialist Mathematics subject 
@@ -102,32 +103,50 @@ spec_math_long <- spec_math %>%
                values_to = "enrolments") 
 ```
 
+```{r}
+# First enrolments for first 10 schools
+spec_math_long %>% 
+  # School ID < 10
+  filter(as.numeric(as.character(qcaa_school_id)) <= 10) %>% 
+  ggplot(aes(x = completion_year, y = enrolments)) +
+  geom_line(aes(group = qcaa_school_id)) +
+  facet_grid(qcaa_school_id ~ unit,
+             scales = "free_x")
+```
 
-## Models
+- There seems to be variations within schools
+- Some schools discontinued Specialist Mathematics subject (*e.g.* `qcaa_school_id` 1) earlier while some schools introduced the subject in the later years (*e.g.* `qcaa_school_id` 8)
 
-### Simple Model
+### Simple Linear Model
 
 - Building a simple model acts as a good starting place
   - provides visual intuition to capture potential trends or problems
-  - further, this model can be used to compare with the more complex model
+  - Model can also be used to compare with the more complex model
 
 ```{r}
-# Basic linear regression model
-basic_lm <- lm(enrolments ~ completion_year + unit, data = spec_math_long)
-summary(basic_lm)
+# Fit linear model for all schools separately
+ml_school <- spec_math_long %>% 
+  group_by(qcaa_school_id) %>% 
+  summarise(tidy(lm(enrolments ~ completion_year + unit)),
+            .groups = "drop") %>% 
+  select(qcaa_school_id, term, estimate) %>% 
+  pivot_wider(names_from = term, 
+              values_from = estimate) %>% 
+  rename(intercept = `(Intercept)`)
 
-# Plot model fit
-spec_math_long %>% 
-  ggplot(aes(x = completion_year, y = enrolments)) +
-  geom_point() +
-  stat_smooth(method = "lm") +
-  facet_wrap(~ unit)
+ml_school %>% 
+  ggplot() +
+  geom_point(aes(y = intercept,
+                 x = unityear_12_enrolments,
+                 colour = if_else(unityear_12_enrolments > 0, "blue", "green")),
+             alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_colour_discrete_qualitative()
 ```
 
-- All three variables are significant in determining enrolments
-  - However, this is probably due to the large sample size 
-
-- The plot demonstrates that this is a rather bad fit
+**Slope vs intercept**
+- There seems to be little correlation
+  - Relative to year 11 enrolments, most year 12 enrolments see little to no change (as shown by the group centered around zero)
 
 
 ### Multilevel model
@@ -166,37 +185,35 @@ spec_math_long %>%
 - Generally, Wide Bay district have little enrolments in Specialist Mathematics subjects
   - There seem to be a dip in enrolments in 2019, where enrolments for most schools were 0
 
+
 ```{r}
-# Fit Multiple Linear Regression with no intercept
-district_lm <- lm(enrolments ~ 0 + completion_year + qcaa_district + unit, data = spec_math_long)
-summary(district_lm)
+# Fit linear model for all districts separately
+ml_district <- spec_math_long %>% 
+  group_by(qcaa_district) %>% 
+  summarise(tidy(lm(enrolments ~ completion_year + unit)),
+            .groups = "drop") %>% 
+  select(qcaa_district, term, estimate) %>% 
+  pivot_wider(names_from = term, 
+              values_from = estimate) %>% 
+  rename(intercept = `(Intercept)`)
+
+ml_district %>% 
+  ggplot() +
+  geom_point(aes(y = intercept,
+                 x = unityear_12_enrolments,
+                 colour = if_else(unityear_12_enrolments > 0, "blue", "green")),
+             alpha = 0.8) +
+  theme(legend.position = "none") +
+  scale_colour_discrete_qualitative()
 ```
 
-- However, to implement analysis above, slope and intercept are to be estimated for each regression
-  - This means that 52 parameter estimates (2 x 13 `qcaa_district` x 2 `unit` = 52)
-- This decreases sample size significantly, and increases the change of Type I error (*i.e.* Falsely rejecting null hypothesis) by carrying out multiple comparisons
-
+- The linear model indicates that all districts have a have lower enrolment scores in year 12, as compared to year 11
 - As our goal is to know if enrolments are decreasing with the new QCE system, we can simply 'control the variation' from the various districts
   - $\therefore$ It is better to use mixed effects model
 
-```{r, warning=FALSE}
-spec_math_long %>% 
-  ggplot(aes(x = completion_year, y = enrolments)) +
-  geom_point(aes(colour = unit),
-             alpha = 0.5) +
-  stat_smooth(aes(colour = unit),
-              geom = "line",
-              method = "lm") +
-  facet_wrap(~ qcaa_district)
-```
-
 ### Mixed Effects Model
 
-- Allows us to use all data and account for correlations between data coming from `qcaa_district` and `unit`
-- Also, since fewer parameters are estimated, multiple comparisons are avoided
-
-- As we saw earlier, the enrolments have some residual variation (*i.e.* unexplained variation) associated with district. 
-
+- Enrolments have some residual variation (*i.e.* unexplained variation) associated with district. 
 - By using random effects, this unexplained variation can be modelled through variance.
   - That is, the random effect of `qcaa_district` is meant to capture al influences of districts on the enrolments
 
@@ -204,58 +221,176 @@ spec_math_long %>%
 # Create new completion year variable starting from 0 (Numerically more stable)
 spec_math_long <- spec_math_long %>% 
   mutate(completion_year2 = completion_year - min(completion_year),
-         .after = completion_year)
+         .after = completion_year) %>% 
+  # Remove 0 enrolments (So we can take the logarithm)
+  filter(enrolments != 0)
 
-# Fit lmer model
-district_lmer <- lme4::lmer(enrolments ~ completion_year2 + unit + (1 | qcaa_district), 
+# Center and standardise enrolments
+spec_math_long <- spec_math_long %>% 
+  mutate(c_enrolments = (enrolments - mean(enrolments))/sd(enrolments))
+
+# Fit mixed effects model
+district_lmer <- lme4::lmer(c_enrolments ~ 
+                            completion_year2 + unit + # Fixed effects
+                            (completion_year2 | qcaa_school_id:qcaa_district), # Random effects
                             data = spec_math_long)
-
-summary(district_lmer)
 ```
 
-- As unit enrolments are similar, random slopes are not estimated 
+- 100 is added to enrolments for each school to remove effect of some schools having very low enrolments for short period of times
 
-We can check if association exists after controlling the variation in `qcaa_district`
+### Examine random effects
 
 ```{r}
-# Variance for qcaa_district
-14.8 / (115.9 + 14.8) # ~ 11.3%
+# Extract conditional mean of random effects: E(gamma | y)
+corrected_enrol <- as_tibble(ranef(district_lmer)) %>% 
+  select(term, grp, condval) %>% 
+  # Convert to wide format
+  pivot_wider(names_from = term,
+              values_from = condval) %>% 
+  rename(adj_intcp = `(Intercept)`,
+         adj_slope = completion_year2,
+         qcaa_district = grp)
+
+# Separate district and school id 
+corrected_enrol <- corrected_enrol %>% 
+  separate(qcaa_district, c("qcaa_school_id", "qcaa_district"), sep = ":")
+ 
+# Add raw intercept for each school (`qcaa_school_id`)
+corrected_enrol <- corrected_enrol %>% 
+  mutate(raw_intcp = coef(lm(enrolments ~ qcaa_school_id - 1, data = spec_math_long)))
+
+# Add raw slope for each school (`qcaa_school_id`)
+raw_slope <- spec_math_long %>% 
+  group_by(qcaa_school_id) %>% 
+  # Fit linear model (ignoring correlation between schools within districts)
+  summarise(raw_slope = lm(enrolments ~ completion_year2)$coef["completion_year2"],
+            .groups = "drop") 
+
+# Add raw slope into corrected enrolments tibble
+corrected_enrol <- corrected_enrol %>% 
+  left_join(raw_slope, by = "qcaa_school_id") 
+
+# Scale enrolments for raw & adjusted scores so they're on the same scale
+corrected_enrol <- corrected_enrol %>%
+  mutate(across(where(is.numeric), ~ (.x - mean(.x, na.rm = T))/sd(.x, na.rm = T)))
+
+# Add original dataset into model output
+corrected_enrol <- spec_math %>% 
+  # Extract unique school details
+  distinct(qcaa_school_id, school_name, sector, school_postcode) %>% 
+  right_join(corrected_enrol, by = "qcaa_school_id")
 ```
 
-- The differences between districts only explains about 11% of the total variance that is 'left over' after explaining our fixed effects
-  
-  
-```{r}
-# Visualise predictions
-spec_math_long %>% 
-  mutate(pred = predict(district_lmer)) %>% 
-  ggplot(aes(x = completion_year, y = enrolments, colour = unit)) +
-  geom_point(alpha = 0.02) +
-  # Add predictions
-  geom_line(aes(y = pred)) +
-  facet_wrap(~ qcaa_district) +
-  colorspace::scale_colour_discrete_qualitative()
-```
 
-```{r}
-# Plot results from fixed effects
-tidy(district_lmer, conf.int = TRUE) %>% 
-  filter(effect == "fixed" & term != "(Intercept)") %>% 
-  ggplot(aes(x = term, 
-             y = estimate,
-             ymin = conf.low,
-             ymax = conf.high)) +
-  geom_hline(yintercept = 0, colour = "red") +
+```{r intcp-slope, fig.cap = "Plot of adjusted intercept against adjusted slope reveals correlation between random effects"}
+# Adjusted intercept against adjusted slope (based on mixed effects model)
+corrected_enrol %>% 
+  ggplot(aes(y = adj_intcp,
+             x = adj_slope)) +
   geom_point() +
-  geom_errorbar()+
-  coord_flip()
+  labs(x = "Adjusted slope (change in enrolments per unit increase in completion_year)",
+       y = "Adjusted intercept")
 
-fixef(district_lmer)
+# Raw slope & intercept (ignoring dependence of schools within a district)
+corrected_enrol %>% 
+  ggplot(aes(x = raw_slope,
+             y = raw_intcp)) +
+  geom_point()
 ```
 
-- Completion_year seems to be significantly different from 0
+**Adjusted intercept against adjusted slope**
+- There seems to be a somewhat negative correlation It appears that school with high adjusted intercept tend to have lower adjusted slopes and vice versa.
 
-# Mixed-effects model (Sectors nested within a district)
+**Raw intercept against raw slope**
+- Simple linear models ignores the correlation within districts
+  - The model shows no clear patterns between the intercept and the slope
+
+```{r raw-adj-intercept, fig.cap = "Adjusted intercept against raw intercepts, with a 45° line to guide reader"} 
+library(ggrepel)
+
+# Plot random intercept for each school
+corrected_enrol %>% 
+  ggplot(aes(x = raw_intcp,
+             y = adj_intcp,
+             label = school_name)) +
+  geom_point() +
+  geom_label_repel(data = filter(corrected_enrol,
+                                 adj_intcp > 4 |
+                                 raw_intcp > 4),
+                   nudge_y = -0.5) +
+  geom_abline(intercept = 0,
+              slope = 1,
+              colour = "red")
+```
+
+```{r}
+# Plot random slope for each school
+corrected_enrol %>% 
+  mutate(qcaa_school_id = fct_reorder(qcaa_school_id, adj_slope)) %>% 
+  ggplot(aes(x = adj_slope,
+             y = qcaa_school_id)) +
+  geom_point() + 
+  geom_vline(xintercept = 0,
+             colour = "red") +
+  theme(axis.text.y = element_text(size = 7))
+```
+
+```{r}
+corrected_enrol %>% 
+  ggplot(aes(x = raw_slope, y = adj_slope,
+             label = qcaa_district)) +
+  geom_point() +
+  geom_abline(slope = 1,
+              intercept = 0,
+              colour = "red") +
+  geom_label_repel(data = filter(corrected_enrol,
+                                 adj_slope > 4 |
+                                 raw_slope < -4),
+                   nudge_y = 2)
+```
+
+### Model dianostics
+
+#### QQ-plots
+
+```{r}
+# Random effects
+as_tibble(ranef(district_lmer)) %>% 
+  ggplot(aes(sample = condval)) +
+  geom_qq() +
+  geom_qq_line(colour = "steelblue") +
+  facet_wrap(~ term,
+             scales = "free")
+
+# Residuals
+broom.mixed::augment(district_lmer) %>% 
+  ggplot(aes(sample = .resid)) +
+  geom_qq() +
+  geom_qq_line(colour = "steelblue") 
+```
+
+$$\begin{aligned} &\begin{bmatrix} \gamma_0 \\ \gamma_1 \end{bmatrix} \sim N(0, \hat{D}) \\ where, & \\ \hat{D} &= \begin{bmatrix} var(\gamma_0) & cov(\gamma_0, \gamma_1) \\ cov(\gamma_0, \gamma_1) & var(\gamma_1) \end{bmatrix} \end{aligned}$$
+**Random effects**
+- The conditional random effects $E(\gamma ~|~ y)$ can be assessed for normality using quantile-quantile (QQ) plots
+- Both random slope and random intercept displayed similar characteristics, where observations are skewed to the right
+  - On overall, random effects seems to adhere to normality assumptions
+  
+**Residuals**
+- Residuals have fat tails, and does not look normally distributed
+
+```{r}
+# Residuals against fitted 
+broom.mixed::augment(district_lmer) %>% 
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.4) +
+  geom_hline(yintercept = 0,
+             colour = "red")
+```
+
+- Heteroscedasticity seems to be clear
+- Some diagonal lines due to discretisation of enrolment numbers
+
+# Schools nested within districts, districts nested within sectors
 
 - Data collected within sectors (Catholics, independent or government) may be correlated
   - Therefore, we can include an additional random effect into the model
@@ -304,6 +439,11 @@ dist_sec_lmer <-
                           (1 | qcaa_district) + (1|sample), 
              data = dist_sec)
 
+dist_sec_lmer <- 
+  lme4::lmer(enrolments ~ completion_year2 + unit + 
+                          (1 | qcaa_district:sample),
+             data = dist_sec)
+
 summary(dist_sec_lmer)
 ```
 
@@ -334,9 +474,9 @@ dist_sec %>%
 
 - Model checks if there is an association between enrolments after controlling for variations in `qcaa_district`and `sector` within `qcaa_district`
 
-
-
 # Mixed-effects model (Schools nested within postcode)
+
+## EDA
 
 ```{r}
 spec_math_long %>% 
@@ -346,31 +486,54 @@ spec_math_long %>%
   geom_boxplot() +
   facet_wrap(~ unit) +
   theme(axis.text.x = element_text(angle = 90))
+
+spec_math %>% 
+  drop_na() %>% 
+  filter(year_11_enrolments > 0, year_12_enrolments > 0) %>% 
+  ggplot() +
+  geom_point(aes(x = year_11_enrolments, y = year_12_enrolments),
+             alpha = 0.5)
 ```
+
+Clear positive correlation between year 11 and year 12 enrolments
+
+## Simple Regression Model
+
+```{r}
+# Center year variable
+spec_math_long <- spec_math_long %>% 
+  mutate(c_completion_year = completion_year - mean(completion_year))
+```
+
+```{r}
+# ----- Fit simple linear model for one school
+
+lmod <- lm(enrolments ~ c_completion_year + unit, data = spec_math_long)
+summary(lmod)
+```
+
+- t-test tells us that year 11 and year 12 unit enrolments are not significantly different at the 5% level
+
+```{r}
+
+```
+
+
+## Mixed Effects Model
 
 ```{r}
 # Completion year as fixed effect
 # Postcode as random effect, fixed slope
-postcode_lmer <- lme4::lmer(enrolments ~ completion_year2 + unit + (1  | school_postcode), 
-                            data = spec_math_long)
+
+# Center year variable
+spec_math_long <- spec_math_long %>% 
+  mutate(c_completion_year = completion_year - mean(completion_year))
+
+postcode_lmer <- lme4::lmer(enrolments ~ c_completion_year + unit + (c_completion_year | school_postcode), 
+           data = spec_math_long)
 ``` 
 
-```{r}
-# Take log transformation
-spec_math_long <- spec_math_long %>% 
-  filter(enrolments > 0) %>% 
-  mutate(log_enrolments = log(enrolments))
-
-# Scale and center enrolments
-spec_math_long <- spec_math_long %>% 
-  mutate(across(.cols = c(enrolments, log_enrolments), ~ (.x - mean(.x))/sd(.x))) 
-
-# Introduce random slope
-postcode_lmer <- lme4::lmer(enrolments ~ completion_year2 + unit + (completion_year2 | school_postcode),
-                            data = spec_math_long)
-
-summary(postcode_lmer)
-```
+- Centering of `year` is required as the values of `year` is large, but the variations are small
 
 ```{r}
 # Extract fixed-effects slope
