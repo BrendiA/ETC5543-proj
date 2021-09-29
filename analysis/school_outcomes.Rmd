@@ -1,0 +1,324 @@
+---
+title: "school_outcomes"
+author: "Brendi Ang"
+date: "27/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+```
+
+```{r}
+# Read-in math & science subjects data
+mathsci_all <- read_csv(here::here(data = "data/mathsci_all.csv"))
+```
+
+```{r, include=FALSE}
+# 2012 to 2013
+outcomes_2012 <- read_csv(here::here("data/year_12_outcomes/qsa_stats_yr12_outcomes_12.csv")) %>% 
+  mutate(completion_year = 2012)
+
+outcomes_2013 <- read_csv(here::here("data/year_12_outcomes/qsa_stats_yr12_outcomes_13.csv")) %>% 
+  mutate(completion_year = 2013)
+```
+
+```{r, include=FALSE}
+# 2014 - 2020
+filepath_2008_2020 <- here::here(paste0("data/year_12_outcomes/qcaa_stats_yr12_outcomes_", 
+                                        setdiff(seq(8,19,1), 12:13), # All numbers from 8-19 except 12 & 13 
+                                        "_all_schools.csv"))
+
+files <- filepath_2008_2020 %>% 
+  purrr::map(read_csv)
+
+for (i in 1:length(files)){
+  
+  if (i == 1){
+    outcomes_2008_2020 <- files[[i]] %>%  mutate(completion_year = i + 2007,
+                                                 .before = School)
+  }
+  
+  temp <- files[[i]]
+  
+  temp <- temp %>% 
+    mutate(completion_year = i + 2008)
+  
+  temp <- temp %>% 
+    mutate(completion_year = i + 2009)
+  
+  outcomes_2008_2020 <- rbind(outcomes_2008_2020, temp)
+}
+```
+
+```{r}
+# 2014 - 2020
+filepath_2008_2020 <- here::here(paste0("data/year_12_outcomes/qcaa_stats_yr12_outcomes_", 
+                                        setdiff(seq(8,19,1), 12:13), # All numbers from 8-19 except 12 & 13 
+                                        "_all_schools.csv"))
+
+files <- filepath_2008_2020 %>% 
+  purrr::map(read_csv)
+
+for (i in 1:length(files)){
+  
+  if (i == 1){
+    outcomes_2008_2020 <- files[[i]] %>%  mutate(completion_year = i + 2007,
+                                                 .before = School)
+  } 
+  
+  temp <- files[[i]]
+  
+  if(i %in% 2:4){
+    temp <- temp %>% mutate(completion_year = i + 2007)
+  } else{
+    temp <- temp %>% mutate(completion_year = i + 2009)  
+  }
+
+  outcomes_2008_2020 <- rbind(outcomes_2008_2020, temp)
+}
+```
+
+```{r}
+# Combine dataset from 2008-2020
+school_outcomes <- rbind(outcomes_2008_2020, outcomes_2012, outcomes_2013) %>% 
+  arrange(completion_year)
+```
+
+```{r}
+test_df <- mathsci_all %>% 
+  # Remove parentheses relating to suburb
+  mutate(school_name = str_remove(school_name, " \\(.*\\)")) %>% 
+  # Remove suburb by extracting all text before the last "-"
+  mutate(school_name = str_replace(school_name, pattern = '(.*)\\s+\\-.*', '\\1')) %>% 
+  mutate(school_name = if_else(school_name == "Cloncurry State School P",
+                               true = "Cloncurry State School",
+                               false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "Bayside Christian College Hervey Bay",
+                               true = "Bayside Christian College",
+                               false = school_name)) %>% 
+  # Change name of school to newest name
+  mutate(school_name = if_else(school_name == "Tropical North Learning Academy",
+                               true = "Smithfield State High School",
+                               false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "St Catherine's Catholic College The Whitsundays",
+                               true = "St Catherine's Catholic College",
+                               false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "Aboriginal & Islander Independent Community School",
+                               true = "Aboriginal and Islander Independent Community School",
+                               false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "The SCOTS PGC College",
+                               true = "Scots PGC College",
+                               false = school_name)) %>% 
+  mutate(school_name = if_else(str_detect(school_name, "Marist College"),
+                               true = "Marist College",
+                               false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "The Cathedral School of St Anne and St James",
+                                true = "The Cathedral School",
+                                false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "St Andrew's Catholic College Redlynch Valley",
+                                true = "St Andrew's Catholic College",
+                                false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "Spinifex State College Mount Isa",
+                                true = "Spinifex State College",
+                                false = school_name)) %>% 
+  mutate(school_name = if_else(school_name == "Cloncurry State School P-12",
+                                true = "Cloncurry State School",
+                                false = school_name)) %>% 
+  # Capital K in MacKillop
+  mutate(school_name = if_else(school_name == "Clairvaux MacKillop College",
+                               true = "Clairvaux Mackillop College",
+                               false = school_name)) %>% 
+  # Extra " ' " in Girls
+  mutate(school_name = if_else(school_name == "St Aidan's Anglican Girls' School",
+                                true = "St Aidan's Anglican Girls School",
+                                false = school_name))
+```
+
+```{r}
+school_outcomes <- school_outcomes %>%
+  # Remove schools not in enrolment data
+  filter(!School %in% c("Carinity Education - Rockhampton",
+                        "Carinity Education - Glendyne")) %>% 
+  # Fix error for Cloncurry State school
+  mutate(School = if_else(School == "Cloncurry State School P - 12",
+                               true = "Cloncurry State School",
+                               false = School)) %>% 
+  # Fix error for Moreton Bay Boys' College
+  mutate(School = if_else(School == "Moreton Bay Boys College",
+                               true = "Moreton Bay Boys' College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "Carinity Education - Southside",
+                               true = "Carinity Education",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "Eagleby Learning College",
+                               true = "Eagleby Learning Centre",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "St Mary's Catholic College South Burnett",
+                               true = "St Mary's Catholic College",
+                               false = School)) %>%
+  mutate(School = if_else(School == "St Catherine's Catholic College The Whitsundays",
+                               true = "St Catherine's Catholic College",
+                               false = School)) %>%
+  mutate(School = if_else(School == "Carlisle Adventist Christian College",
+                               true = "Carlisle Adventist College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "Agnew School",
+                               true = "OneSchool Global QLD",
+                               false = School)) %>%
+  mutate(School = if_else(School == "Clairvaux MacKillop College",
+                               true = "Clairvaux Mackillop College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "Emmanuel College Carrara",
+                               true = "Emmanuel College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "St Aidan's Anglican Girls' School",
+                               true = "St Aidan's Anglican Girls School",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "St Joseph's College Gregory Terrace",
+                               true = "St Joseph's College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "St John's College Nambour",
+                               true = "St John's College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "St Joseph's College Toowoomba",
+                               true = "St Joseph's College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "St Joseph's School Stanthorpe",
+                               true = "St Joseph's College",
+                               false = School)) %>% 
+  mutate(School = if_else(School == "The Scots PGC College",
+                               true = "Scots PGC College",
+                               false = School)) %>%
+  mutate(School = if_else(str_detect(School, "Marist College"),
+                               true = "Marist College",
+                               false = School)) %>%
+  mutate(School = if_else(School == "The Cathedral College Rockhampton",
+                               true = "The Cathedral College",
+                               false = School)) %>%
+  mutate(School = if_else(School == "Spinifex State College Mount Isa",
+                                true = "Spinifex State College",
+                                false = School)) %>% 
+  # Extract all text before the last "-"
+  mutate(School = str_replace(School, pattern = '(.*)\\s+\\-.*', '\\1')) %>% 
+  # Remove parentheses relating to suburb
+  mutate(School = str_remove(School, " \\(.*\\)")) 
+```
+
+```{r}
+test_df %>% 
+  filter(completion_year >= 2008 & completion_year <= 2019) %>% 
+  filter(school_name %in% setdiff(school_name, school_outcomes$School )) %>% 
+  distinct(qcaa_school_id, school_name, school_postcode) %>% 
+  arrange(qcaa_school_id)
+
+test_df %>% 
+  filter(school_name %in% setdiff(school_name, school_outcomes$School)) %>% 
+  distinct(qcaa_school_id, school_name, school_postcode) %>% 
+  arrange(qcaa_school_id)
+```
+
+**Schools existed before 2008 but not after 2008**
+1	Acacia Ridge State High School
+6	Salisbury State High School
+51	Mount Carmel College
+95	Newmarket State High School
+96	Oxley Secondary College
+97	Richlands State High School
+99	Toowong College
+123	Mary McConnel School
+222	Frawley College
+237	John Oxley College
+250	Downs Secondary College
+323	Slade School
+332	SQIT Roma College
+374	Qld International Heritage College
+383	Kingaroy Christian College
+553	Mount Carmel Christian Brothers College
+616 Mount Isa State High School changed to Spinifex State College Mount Isa in 2003
+645	Kalkadoon State High School
+
+**Schools existing after 2020**
+261 Good Samaritan College
+322	St Joseph's School
+538	St Teresa's College
+589	St Stephen's Catholic College
+607	Redwood College
+611	Bellbird Park State Secondary College
+623	McAuley College
+694	Mary MacKillop Catholic College
+698	Silver Lining School
+707	Redeemer Lutheran College, Biloela
+2371 Townsville Christian College
+2420 Wisdom College
+
+**Schools fixed using dashes "-"**
+58	Rivermount College
+341	Eagleby Learning Centre
+384	Bayside Christian College
+280	Carinity Education
+
+**Schools fixed using parentheses "()"**
+462	Faith Baptist Christian School
+359	Jubilee Christian College
+460	Capricornia School of Distance Education
+462	Faith Baptist Christian School
+464	Lutheran Ormeau Rivers District School
+483	Australian Christian College
+591 St Catherine's Catholic College The Whitsundays
+625	Ambrose Treacy College
+
+**Schools fixed manually**
+23	Clairvaux Mackillop College
+84	Emmanuel College
+112	Marist College
+113	Marist College			
+115	St Aidan's Anglican Girls School
+122 Moreton Bay Boys' College
+184	St Joseph's College
+251	OneSchool Global QLD
+289	Aboriginal and Islander Independent Community School
+320 Scots PGC College
+322 St Joseph's School
+341	Eagleby Learning Centre
+384 Bayside Christian College
+425	St Mary's Catholic College	
+449	Marist College
+477	The Cathedral College
+534	The Cathedral School
+572 Smithfield State High School
+588	St Andrew's Catholic College
+591 St Catherine's Catholic College
+632 Cloncurry State School
+678	Carlisle Adventist College
+
+**Potential error**
+656 Australian International School not found, with invalid postcode
+657 Nauru Secondary School, with invalid postcode
+664	Suzhou International Foreign Language School
+665 Hangzhou Dong Fang School
+667	Number 1 Middle School of Suzhou New District	
+668	Qingdao Guokai Middle School
+669	Anji Shangshu Private High School
+  - Note: Most of these schools relate to overseas schools
+
+## Duplicates 
+
+```{r}
+# School ID with >= 2 school names (Schools with >= 2 different postcodes)
+duplicates <- test_df %>% 
+  select(qcaa_school_id, school_name, school_postcode) %>% 
+  distinct(.keep_all = TRUE) %>% 
+  group_by(school_name) %>% 
+  tally() %>% 
+  filter(n > 1) %>% 
+  pull(school_name)
+
+# Add school and postcode as some schools may have same school ID but different postcodes
+test_df <- test_df %>% 
+  mutate(school_and_postcode = paste0(school_name, " (", school_postcode, ")"),
+         .before = school_name)
+```
+
