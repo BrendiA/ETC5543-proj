@@ -1,0 +1,90 @@
+---
+title: "analysis-gender"
+author: "Brendi Ang"
+date: "17/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(janitor)
+library(readxl)
+library(naniar)
+
+select <- dplyr::select
+```
+
+```{r}
+# ----- Read-in data
+
+# --- File name
+file_path <- here::here(paste0("data/diversity/qcaa_stats_sen_subjects_", c(2008:2019), ".xlsx"))
+
+# --- Reduce all .xlsx files to one data frame
+subj_group <- file_path %>% 
+  purrr::map(read_xlsx) %>% 
+  purrr::reduce(rbind)
+
+subj_group <- subj_group %>% 
+  janitor::clean_names()
+
+# Select relevant variables
+subj_group <- subj_group %>% 
+  rename(completion_year = cohort_year)
+```
+
+```{r}
+subj_group2020 <- read_xlsx(here::here("data/diversity/qcaa_stats_sen_subjects_2020.xlsx"))
+
+# Group unit 1 & 2, 3 & 4 enrolments into year 11 and year 12 enrolments respectively
+## Required as old system splits enrolments into two groups (year 11 and year 12 enrolments)
+subj_group2020 <- subj_group2020 %>% 
+  rowwise() %>% 
+  mutate(year_11_enrolments = sum(UNIT_1_ENROLMENTS, UNIT_2_ENROLMENTS),
+         year_12_enrolments = sum(UNIT_3_ENROLMENTS, UNIT_4_ENROLMENTS)) %>% 
+  # Remove short course enrolments
+  dplyr::select(-c(UNIT_1_ENROLMENTS:UNIT_4_ENROLMENTS)) %>% 
+  ungroup()
+
+subj_group2020 <- subj_group2020 %>% 
+  janitor::clean_names()
+
+# Rename variables to match with data before 2019
+subj_group2020 <- subj_group2020 %>% 
+  select(-c(schools_offering)) %>% 
+  rename(completion_year = exit_year,
+         number_vha = number_a,
+         percentage_vha = percentage_a,
+         number_ha = number_b,
+         percentage_ha = percentage_b,
+         number_sa = number_c,
+         percentage_sa = percentage_c,
+         number_la = number_d,
+         percentage_la = percentage_d,
+         number_vla = number_e,
+         percentage_vla = percentage_e)
+```
+
+```{r}
+# join dataset for old & new QCE system
+subj_group <- subj_group %>% 
+  rbind(subj_group2020)
+```
+
+```{r}
+subj_group <- subj_group %>% 
+  # Standardise all syllabus names 
+  mutate(syllabus = str_to_title(syllabus)) %>% 
+  # Change data types
+  mutate(completion_year = as.numeric(completion_year),
+         subject_type = as.factor(subject_type),
+         grouping = as.factor(grouping),
+         # Convert variables from `year_11_enrolments`to numeric
+         across(.cols = year_11_enrolments:students_with_4_units_credit, ~ as.numeric(.x))) 
+```
+
+
