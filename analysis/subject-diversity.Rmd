@@ -16,6 +16,9 @@ library(readxl)
 library(naniar)
 
 select <- dplyr::select
+
+# Set global theme for document
+ggplot2::theme_set(theme_bw())
 ```
 
 ```{r}
@@ -38,6 +41,7 @@ subj_group <- subj_group %>%
 ```
 
 ```{r}
+# Read-in data for 2020
 subj_group2020 <- read_xlsx(here::here("data/diversity/qcaa_stats_sen_subjects_2020.xlsx"))
 
 # Group unit 1 & 2, 3 & 4 enrolments into year 11 and year 12 enrolments respectively
@@ -79,6 +83,7 @@ subj_group <- subj_group %>%
 subj_group <- subj_group %>% 
   # Standardise all syllabus names 
   mutate(syllabus = str_to_title(syllabus)) %>% 
+  rename(subject_name = syllabus) %>% 
   # Change data types
   mutate(completion_year = as.numeric(completion_year),
          subject_type = as.factor(subject_type),
@@ -86,5 +91,133 @@ subj_group <- subj_group %>%
          # Convert variables from `year_11_enrolments`to numeric
          across(.cols = year_11_enrolments:students_with_4_units_credit, ~ as.numeric(.x))) 
 ```
+
+```{r}
+subj_group <- subj_group %>% 
+  # Remove parentheses relating to syllabus number 
+  mutate(subject_name = str_remove(subject_name, "\\(.*\\).?"),
+         subject_name = str_replace(subject_name, "And", "and"),
+         subject_name = str_replace(subject_name, "In", "in")
+         ) %>% 
+  mutate(subject_name = str_trim(subject_name))
+
+subj_group <- subj_group %>% 
+  # Consistent with subjects names in new QCE system
+  mutate(subject_name = case_when(
+    subject_name == "Mathematics A" ~ "General Mathematics",
+    subject_name == "Mathematics B" ~ "Mathematical Methods",
+    subject_name == "Mathematics C" ~ "Specialist Mathematics",
+    TRUE ~ subject_name
+  )) 
+
+mathsci_group <- subj_group %>%
+  filter(
+    subject_name %in% c(
+      "General Mathematics",
+      "Mathematical Methods",
+      "Specialist Mathematics",
+      "Chemistry",
+      "Physics",
+      "Biology",
+      "Marine Science" ,
+      "Agricultural Science",
+      "General Mathematics"  ,
+      "Mathematical Methods" ,
+      "Specialist Mathematics",
+      "Psychology",
+      "Agricultural Practices",
+      "Essential Mathematics",
+      "Science in Practice",
+      "Agricultural Practices",
+      "Aquatic Practices"
+    )
+  )
+
+# Replace missing values in enrolment with 0
+mathsci_group <- mathsci_group %>% 
+  mutate(across(.cols = year_11_enrolments:year_12_enrolments, ~ replace_na(.x, 0))) %>% 
+  mutate(across(.cols = year_11_enrolments:year_12_enrolments, ~ as.numeric(.x)))
+
+# Sum enrolments across all subject types
+mathsci_group <- mathsci_group %>% 
+  group_by(completion_year, subject_name, grouping) %>% 
+  summarise(year_11_enrolments = sum(year_11_enrolments),
+            year_12_enrolments = sum(year_12_enrolments),
+            .groups = "drop") 
+```
+
+```{r}
+mathsci_group %>%
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments") %>% 
+  filter(grouping %in% c("Males", "Females")) %>% 
+  ggplot(aes(x = completion_year,
+             y = enrolments)) +
+  geom_line(aes(colour = grouping)) +
+  facet_grid(subject_name ~ unit,
+             scales = "free")
+```
+
+
+```{r}
+mathsci_group %>% 
+  filter(subject_name == "Physics", 
+         grouping %in% c("Males", "Females")) %>% 
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments") %>% 
+  ggplot(aes(x = factor(completion_year),
+             y = enrolments,
+             colour = grouping)) +
+  geom_point() +
+  facet_wrap(~ unit)
+```
+
+
+```{r}
+# Convert to long format for plotting purposes
+mathsci_group_long <- mathsci_group %>% 
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments") %>% 
+  # Males & females
+  filter(grouping %in% c("Males", "Females")) %>% 
+  # Concatenate groupings and unit for plotting purposes
+  mutate(unit_grouping = paste0(grouping, ":", unit)) 
+
+mathsci_group_long %>% 
+  ggplot(aes(x = factor(completion_year),
+                y = enrolments,
+                group = unit_grouping,
+                colour = grouping)) +
+  geom_line() +
+  # Scatter plot for psychology subject consisting of only one cohort in 2020
+  geom_point(data = filter(mathsci_group_long, 
+                           subject_name == "Psychology")) +
+  colorspace::scale_colour_discrete_qualitative() +
+  facet_wrap(~ subject_name,
+             scales = "free") +
+  theme(axis.text.x = element_text(angle = 90)) +
+  # Allow y-axis to start from 0 for better interpretation
+  scale_y_continuous(expand = c(0, 0), limits = c(0, NA))
+```
+
+- Psychology is a new subject in the new QCE system, no observations
+- To be noted, essential mathematics should not consist 2021 figures
+
+
+## Issues with dataset
+
+```{r}
+# Issue: Why are there 2021 enrolment figures
+subj_group %>% 
+  filter(completion_year == 2021)
+```
+
+
+
+
+
 
 
