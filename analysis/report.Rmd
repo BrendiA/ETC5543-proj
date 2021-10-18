@@ -1,0 +1,313 @@
+---
+title: "mixed-model2"
+author: "Brendi Ang"
+date: "17/10/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(lme4)
+
+ggplot2::theme_set(theme_bw())
+```
+
+```{r, include=FALSE, warning=FALSE}
+# Read-in data
+mathsci_all <- read_csv(here::here("data/mathsci_all.csv"),
+                        col_types = cols(doe_centre_code = col_factor()))
+
+# --- Clean district names
+
+# Remove 'District' in `qcaa_district` as there are repeated districts
+mathsci_all <- mathsci_all %>% 
+  mutate(qcaa_district = str_to_title(qcaa_district)) %>% 
+  # Remove words that has a space (\s), followed by the word "District"
+  mutate(qcaa_district = str_remove_all(qcaa_district, "\\sDistrict")) 
+
+# --- Clean sector names
+
+mathsci_all <- mathsci_all %>% 
+  mutate(sector = case_when(
+    sector == "SCAT" ~ "Catholic",
+    sector == "SIND" ~ "Independent",
+    sector == "SGOV" ~ "Government",
+    TRUE ~ sector
+  )) %>% 
+  # Remove overseas sector (SOVS), and sectors with only 1 entry (JIND, SPEC) and SCOL
+  filter(sector %in% c("Catholic", "Independent", "Government"))
+
+# --- Change data types
+mathsci_all <- mathsci_all %>% 
+  mutate(across(.cols = c(subject_name,
+                          subject_type,
+                          qcaa_school_id,
+                          school_postcode,
+                          qcaa_district),
+                ~ as.factor(.x)))
+```
+
+# Specialist Mathematics
+
+```{r}
+# --- Specialist Mathematics subject 
+spec_math <- mathsci_all %>%
+  filter(subject_name == "Specialist Mathematics") 
+
+# --- Convert to long format for modelling & plotting
+spec_math_long <- spec_math %>% 
+  pivot_longer(cols = year_11_enrolments:year_12_enrolments,
+               names_to = "unit",
+               values_to = "enrolments") 
+```
+
+```{r}
+
+spec_math_long <- spec_math_long %>% 
+  mutate(c_completion_year= completion_year - min(completion_year),
+         .before = completion_year)
+```
+
+- Often helpful to *rescale* time variable so the first measurement occasion is the *zero point*
+  - Thereby giving the intercept the interpretation of baseline, or initial status on the dependent variable
+  
+
+# Mixed Models
+
+- When building a multilevel model, we begin with a null or empty model.
+- Predictors are then added to the model in a forward stepwise approach
+- Overall fit of the model is considered throughout the model building process
+
+## Null (random-intercept) model
+
+- Fit a null model in which there are no predictors, only the intercept
+- Null model provides useful information in understanding the structure of the data
+  - Obtain estimates of residuals & intercept variance when only clustering by postcode
+  - Provides estimates of the variance among the schools $\sigma^2$, and among the clusters $\tau^2$
+  - Can be used to compute intraclass correlation 
+  
+```{r}
+# ----- Fit null model
+
+# School nested within districts
+district_lmm1.0 <- lmer(enrolments ~ c_completion_year + (1 | qcaa_district) , data = spec_math_long)
+
+# School nested within postcodes
+postcode_lmm1.0 <- lmer(enrolments ~ c_completion_year + (1 | school_postcode) , data = spec_math_long)
+```
+
+**Model specification:**
+
+$$\begin{aligned} \text{Level 1} \\ Y_{ti} &= \beta_{0i} + \beta_{1j}\color{steelblue}{\text{c_completion_year}_{ij}} + \epsilon_{ij} \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j} \\ \beta_{1j} &= \gamma_{10} \end{aligned}$$
+
+- Level 1 refers to a single measurement in time, while level 2 refer to the individual schools
+
+With, 
+$$\begin{aligned} U_{0j} &\sim N(0, \tau^2_{00}) \\ \epsilon_{ij} &\sim (0, \sigma^2) \end{aligned}$$
+
+### Intraclass correlation ($ICC$)
+
+```{r}
+summary(district_lmm1.0)
+```
+
+
+**Intraclass correlation for schools nested within districts:**
+
+$$\rho_i = \frac{\tau^2}{\tau^2 + \sigma^2} = \frac{22.26}{22.26 + 169.63} = 0.1160$$
+
+- $\rho_I = 0.1160$ suggests that the correlation of enrolments among schools within the same district is approximately 0.1160
+- Although this value is relatively small compared the the $ICC$ value for schools within postcodes, it does not warrant abandoning the model as additional dependence may arise after predictors are added to the model
+  - Therefore, ICC should be an initial indicator of the warrants of the model, but small values should not immediately rule out its use.
+
+**Intraclass correlation for schools nested within postcodes**
+
+```{r}
+summary(postcode_lmm1.0)
+```
+
+$$\rho_i = \frac{\tau^2}{\tau^2 + \sigma^2} = \frac{55.76}{55.76 + 134.39} =  0.2932$$
+- $\rho_I = 0.2932$ suggests that the correlation of enrolments among schools within the same postcode is approximately 0.2932 
+
+### Confidence interval
+
+```{r}
+# --- Schools nested within districts
+
+# Compute confidence interval
+confint(district_lmm1.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+
+```{r}
+# --- Schools nested within postcodes
+
+# Compute confidence interval
+confint(postcode_lmm1.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+
+### Visualising predictions
+
+```{r}
+# Simple regression model
+ggplot(spec_math_long,
+       aes(x = completion_year, 
+           y = enrolments)) +
+  geom_line(aes(group = qcaa_school_id),
+            colour = "grey80") +
+  geom_smooth(method = "lm") +
+  facet_wrap(~ unit) +
+  labs(ttle = "Hypothetical single-level growth model")
+```
+
+- Single line used to estimate the growth of all students.
+
+```{r}
+# Schools nested within districts
+spec_math_long %>% 
+  mutate(.pred = predict(district_lmm1.0, newdata = .)) %>% 
+  ggplot(aes(x = completion_year,
+             y = .pred)) +
+  geom_line(aes(group = qcaa_district)) +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              colour = "orange") +
+  facet_wrap(~ unit,
+             nrow = 2)
+```
+
+```{r}
+# Schools nested within postcodes
+spec_math_long %>% 
+  mutate(.pred = predict(postcode_lmm1.0, newdata = .)) %>% 
+  ggplot(aes(x = completion_year,
+             y = .pred)) +
+  geom_line(aes(group = school_postcode),
+            alpha = 0.8) +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              colour = "orange") +
+  facet_wrap(~ unit,
+             nrow = 2)
+```
+
+
+## Unconditional growth model (random-slope)
+
+```{r}
+district_lmm2.0 <- lmer(enrolments ~ c_completion_year + (c_completion_year | qcaa_district), 
+                        data = spec_math_long,
+                        control = lmerControl(optimizer ="Nelder_Mead")) # Change optimiser for convergence
+
+postcode_lmm2.0 <- lmer(enrolments ~ c_completion_year + (c_completion_year | school_postcode), 
+                        data = spec_math_long)
+```
+
+- Random intercepts and slopes allow each school's intercept and slope to be estimated based on each school's observed data.
+
+
+**Model specification**
+
+$$\begin{aligned} \text{Level 1} \\ Y_{ti} &= \beta_{0i} + \beta_{1j}\color{steelblue}{\text{c_completion_year}_{ij}} + \epsilon_{ij} \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j} \\ \beta_{1j} &= \gamma_{10} + u_{1j} \end{aligned}$$
+With,
+
+$$\begin{aligned} \begin{bmatrix} U_{0j} \\ U_{1j} \end{bmatrix} &\sim N \begin{bmatrix} 0 & , & \tau^2_{00} & \tau^2_{01} \\ 0 & & \tau^2_{01} & \tau^2_{10} \end{bmatrix} \\ \epsilon_{ij} &\sim (0, \sigma^2) \end{aligned}$$
+
+### Confidence intervals
+
+### Visualising predictions
+
+```{r}
+# Schools nested within districts
+spec_math_long %>% 
+  mutate(.pred = predict(district_lmm2.0, newdata = .)) %>% 
+  ggplot(aes(x = completion_year,
+             y = .pred)) +
+  geom_line(aes(y = enrolments,
+                group = qcaa_school_id),
+            colour = "grey80") +
+  geom_line(aes(group = qcaa_district)) +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              colour = "orange") +
+  facet_wrap(~ unit,
+             nrow = 2)
+```
+
+```{r, message=FALSE}
+# Schools nested within postcodes
+spec_math_long %>% 
+  mutate(.pred = predict(postcode_lmm2.0, newdata = .)) %>% 
+  ggplot(aes(x = completion_year,
+             y = .pred)) +
+  geom_line(aes(group = school_postcode),
+            alpha = 0.5) +
+  geom_smooth(method = "lm",
+              se = FALSE,
+              colour = "orange") +
+  facet_wrap(~ unit,
+             nrow = 2)
+```
+
+## Adding predictors
+
+```{r}
+confint(district_lmm2.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+All predictors are significant, except the for the correlation between the `c_completion_year` and `qcaa_district`
+
+```{r}
+confint(postcode_lmm2.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+- All predictors are significant
+  - This may suggest that this model is superior to that of `district_lmm2.0`
+
+### Pseudo $R^2$
+
+$$Pseudo R^2 = \frac{\sigma^2_{\text{unconditional}} - \sigma^2_{\text{conditional}}}{\sigma^2_{\text{unconditional}}}$$
+
+- As there is no direct measure of the variance accounted for by the multilevel model, the pseudo $R^2$ provide an indication of the amount of variance accounted for by comparing the variance component in a unconditional model to the same variance component in a conditional model
+- Pseudo $R^2$ can be computed for the overall residual in the model, $\epsilon_{ij}$, or for any random parameter (*e.g.* intercept variance). 
+- Can be interpreted as an estimate of the proportional reduction in unexplained variance in the random paramenter, accounted for by the predictor variables in the model
+  - Note: When exploring how predictor variables account for the variance in specific parameters, one would simply substitute $\sigma^2$ terms for $\tau^2$'s
+  
+# Adding predictors to the model
+
+```{r}
+mathsci_all %>% 
+  filter(completion_year > 2019)
+```
+
+# Steps 
+- Add predictors, compare AIC, BIC, $R^2$ to see if it's a better fit
+- Add third-level to the data structure (*e.g.* schools nested within postcodes and sector) 
+  - use `anova()` to test if adding third structure provides a better fit
+
+  
+# Others
+- Look at maps
+
+
+
+
+
+
+
+
