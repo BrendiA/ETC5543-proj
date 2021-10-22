@@ -13,13 +13,16 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
-```{r}
+```{r, include=FALSE}
 # ----- Read-in data
 
 # --- Enrolments for all subjects from 1992 to 2019
 subj_old <- read_csv(here::here("data/qcaa_stats_subj_part_1992-2019.csv")) %>% 
   # Remove problematic entries
   filter(is.na(X13)) %>% 
+  select(-c(X13, X14))
+
+read_csv(here::here("data/qcaa_stats_subj_part_1992-2019.csv"))  %>% 
   select(-c(X13, X14))
 
 # --- Enrolments for all subjects from 2020 to 2021 (Sep)
@@ -57,9 +60,10 @@ subj_new <- rbind(subj_2020, subj_2021, subj_2022) %>%
 
 subj_old <- subj_old %>% 
   mutate(
-    completion_year = as.factor(completion_year),
+    completion_year = as.numeric(completion_year),
     qcaa_subject_id = as.factor(qcaa_subject_id),
     subject_type = as.factor(subject_type),
+    doe_centre_code = as.factor(doe_centre_code),
     qcaa_school_id = as.factor(qcaa_school_id),
     sector = as.factor(sector),
     school_postcode = as.factor(school_postcode),
@@ -68,7 +72,7 @@ subj_old <- subj_old %>%
 
 subj_new <- subj_new %>% 
   mutate(
-    completion_year = as.factor(completion_year),
+    completion_year = as.numeric(completion_year),
     qcaa_subject_id = as.factor(qcaa_subject_id),
     subject_type = as.factor(subject_type),
     qcaa_school_id = as.factor(qcaa_school_id),
@@ -93,6 +97,7 @@ subj_new <- subj_new %>%
   mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ replace_na(.x, 0))) %>% 
   mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ as.numeric(.x)))
 ```
+
 
 ```{r}
 # ----- Enrolment for mathematics and science subjects 
@@ -178,18 +183,47 @@ mathsci_new <- mathsci_new %>%
   select(-c(unit_1_enrolments:short_course_enrolments)) %>% 
   ungroup()
 
+# Bind enrolment data for new and old QCE system
 mathsci_all <- rbind(mathsci_old, mathsci_new)
 ```
 
 ```{r}
-# ----- Write data
+# --- Clean district names
 
-write_csv(mathsci_all, here::here("data/mathsci_all.csv"))
+# Remove 'District' in `qcaa_district` as there are repeated districts
+mathsci_all <- mathsci_all %>% 
+  mutate(qcaa_district = str_to_title(qcaa_district)) %>% 
+  # Remove words that has a space (\s), followed by the word "District"
+  mutate(qcaa_district = str_remove_all(qcaa_district, "\\sDistrict")) 
+
+# --- Clean sector names
+
+mathsci_all <- mathsci_all %>% 
+  # Convert to character for string manipulation
+  mutate(sector = as.character(sector)) %>% 
+  mutate(sector = case_when(
+    sector == "SCAT" ~ "Catholic",
+    sector == "SIND" ~ "Independent",
+    sector == "SGOV" ~ "Government",
+    TRUE ~ sector
+  )) %>% 
+  mutate(sector = as.factor(sector)) %>% 
+  # Remove overseas sector (SOVS), and sectors with only 1 entry (JIND, SPEC) and SCOL
+  filter(sector %in% c("Catholic", "Independent", "Government"))
+
+# --- Change data types
+mathsci_all <- mathsci_all %>% 
+  mutate(across(.cols = c(subject_name,
+                          subject_type,
+                          qcaa_school_id,
+                          school_postcode,
+                          qcaa_district,
+                          sector),
+                ~ as.factor(.x)))
 ```
 
 
-
-
-
-
-
+```{r, eval=FALSE}
+# ----- Write data
+write_csv(mathsci_all, here::here("data/mathsci_all.csv"))
+```
