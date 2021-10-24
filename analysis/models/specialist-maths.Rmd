@@ -17,6 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(broom)
 library(broom.mixed)
+library(colorspace)
+library(kableExtra)
 library(lme4)
 library(patchwork)
 
@@ -31,7 +33,7 @@ mathsci_all <- read_csv(here::here("data/mathsci_all.csv"),
                         col_types = cols(doe_centre_code = col_factor()))
 ```
 
-# Specialist Mathematics
+# The dataset
 
 ```{r}
 # Specialist Mathematics subject 
@@ -45,7 +47,68 @@ spec_math_long <- spec_math %>%
                values_to = "enrolments") 
 ```
 
-## Getting the data ready for modelling
+# EDA
+
+```{r}
+# Fit a linear model for 20 random sampled schools
+set.seed(3142)
+spec_math_long %>% 
+  filter(qcaa_school_id %in% sample(qcaa_school_id, size = 20),
+         enrolments > 0) %>% 
+  ggplot(aes(x = completion_year,
+             y = log(enrolments))) +
+  geom_point() +
+  stat_smooth(method = "lm",
+              colour = "orange") +
+  facet_wrap(~ qcaa_school_id) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+- Figure fits a linear curve for log(`enrolments`) for a random sample of 20 schools
+- One advantage of the linear model within school is that each school's data points can be summarise with two summary statistics (intercept and slope), which is helpful to help understand the data better.
+  - the intercept conveys that school's enrolment when the subject was first introduced while
+  - the slope conveys the school's yearly average increase in enrolment over the period in which specialist mathematics is running
+- For instance, the figure above suggests that enrolments in school 2 (top left) and school 591 (bottom right) appears to have a larger increase in enrolments over the years the specialist mathematics have been introduced.
+- Figure also demonstrates that each school can introduce (or end) specialist mathematics at different years
+  - School 591 only introduced the subject in 2016
+  - School 113 introduced the subject in 1995 and discontinued the subject in 2005
+  
+```{r}
+spec_math %>%
+  group_by(qcaa_school_id, completion_year) %>% 
+  mutate(enrolments = mean(c(year_11_enrolments, year_12_enrolments), na.rm = T)) %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = enrolments,
+                group = qcaa_school_id)) +
+  facet_wrap(~ sector)
+
+spec_math %>%
+  group_by(qcaa_school_id, completion_year) %>% 
+  mutate(enrolments = mean(c(year_11_enrolments, year_12_enrolments), na.rm = T)) %>% 
+  ungroup() %>% 
+  filter(school_postcode %in% sample(school_postcode, size = 20),
+         enrolments > 0) %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = enrolments,
+                group = qcaa_school_id)) +
+  facet_wrap(~ school_postcode)
+
+spec_math_long %>% 
+  filter(school_postcode %in% sample(school_postcode, size = 20),
+         enrolments > 0)  %>% 
+  ggplot() +
+  geom_boxplot(aes(x = factor(1),
+                   y = enrolments,
+                   fill = sector)) +
+  facet_wrap(~ school_postcode,
+             scales = "free")
+```
+
+
   
 ```{r}
 # Total schools from 1995 to 2020
@@ -64,6 +127,10 @@ spec_math %>%
 ```
 
 - Starting from 1995, there were considerably more schools that introduced Specialist Mathematics into their course syllabus.
+
+
+
+# Getting the data ready for modelling
 
 ```{r}
 p1 <- spec_math_long %>% 
@@ -112,7 +179,7 @@ p1 / p2
 ```
 
 - Enrolment numbers are right skewed, which is attributed to the various size of the different schools in Queensland
-- As multilevel model assumes normality in the error terms, a log transformation is utilised to make data more symmetric (or 'normal')
+- As multilevel model assumes normality in the error terms, a log transformation is utilised to allow models to be estimated by the linear mixed models
   - A log transformation is suitable in this context as enrolment numbers are by nature, a positive number
 
 
@@ -142,6 +209,7 @@ p2 <- spec_math %>%
 p1 / p2
 ```
 
+- Red line shows year 11 enrolments = year 12 enrolments
 - Some schools offered Specialist mathematics subjects for Year 11, but not for Year 12 (and vice versa)
   - These zero enrolment numbers will be removed from the analysis
 
@@ -162,28 +230,32 @@ spec_math_long <- spec_math_long %>%
 
 ```{r}
 # Rescale `completion_year` variable
-spec_math_long <- spec_math_long %>% 
-  mutate(c_completion_year= completion_year - min(completion_year),
-         .before = completion_year)
-
-# Log transformation for enrolments
-spec_math_long <- spec_math_long %>% 
+spec_math_long <- spec_math_long %>%
+  # Recentre year
+  mutate(year92 = completion_year - min(completion_year),
+         .before = completion_year) %>% 
+  # Log transformation of response variable
   mutate(log_enrolments = log(enrolments))
 ```
 
 - Often helpful to *rescale* time variable so the first measurement occasion is the *zero point*
   - Thereby giving the intercept the interpretation of baseline, or initial status on the dependent variable (*i.e.* 0 as the commencement of the Specialist Mathematics subject)
+- In this case, `year92` represents the zero point (*i.e.* when the first specialist mathematics subject was first introduced)
   
-## Null (random-intercept) model  
+# Methodology
 
-- When building a multilevel model, we begin with a null or empty model.
-  - A null model is a model in which there are no predictors, only the intercept
+- Start with unconditional means model
+  - Predictors are then added to the model in a forward stepwise approach
+- Overall fit of the model is considered throughout the model building process
+  
+## Unconditional means model
+
+- When building a multilevel model, we begin with a null or empty model, where there are no predictors at any level
+- Level 1 refers to a single measurement in time, while level 2 refer to the individual schools
 - Null model provides useful information in understanding the structure of the data
   - Obtain estimates of residuals & intercept variance when only clustering by postcode
-  - Provides estimates of the variance among the schools $\sigma^2$, and among the clusters $\tau^2$
-  - Can be used to compute intraclass correlation 
-- Predictors are then added to the model in a forward stepwise approach
-- Overall fit of the model is considered throughout the model building process  
+  - Assess the amount of variation at each level at each level ($\sigma^2$), and among the clusters ($\tau^2$)
+  - Compute intraclass correlation 
   
 ```{r}
 # ----- Fit null model
@@ -194,50 +266,61 @@ postcode_lmm0.0 <- lme4::lmer(log_enrolments ~ 1 + (1 | school_postcode) ,
                               data = spec_math_long)
 ```
 
+We fitted a multilevel model for schools nested within districts and schools nested within postcodes:
 - `(1|qcaa_district)` indicates that the random intercept varies within the different districts in Queensland
 - `(1|school_postcode)` indicates that the random intercept varies within school postcodes
 
-### Model specification and notation
+```{r}
+# Obtain AIC and BIC values 
+tibble(model = c("Schools nested within 13 districts",
+                 "Schools nested within 189 postcodes"),
+       AIC = c(AIC(district_lmm0.0),
+               AIC(postcode_lmm0.0)),
+       BIC = c(BIC(district_lmm0.0),
+               BIC(postcode_lmm0.0)))
+```
+
+- As the AIC and BIC is significantly better for the model for schools nested within postcode, the model will be considered.
+
 
 $$\begin{aligned} \text{Level 1} \\ Y_{ij} &= \beta_{0i} + \epsilon_{ij} \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j}\end{aligned}$$
+
 At level 1:
-- $y_{ij}$: log enrolments for level one unit $i$ nested in level-two unit $j$  
+- $y_{ij}$: log enrolments for level one unit $i$ nested in the postcode (level-two unit $j$)
   - In this context, level-one unit relates to the individual schools and
-  - level-two unit relates to the districts (`qcaa_district`) or postcodes (`school_postcode`) of the school
+  - level-two unit relates to the postcode (`school_postcode`) of the school
+  
 - $\beta_{0j}$: Level 1 intercept
+
 - $\epsilon_{ij}$: Residual or unexplained variance
   - *i.e.* Residual variance unique to the school that are not captured by the model
 
 At level2: 
 - $\gamma_{00}$ Level-2 intercept or grand mean across all schools
-  - district or postcode level intercept
-- $u_{0j}$: Random parameter corresponding to level 2 residual variance 
-  - *i.e.* Difference between overall log enrolments and average log enrolments for district $j$ or postcode $j$, the school the students attends
+  - postcode level intercept
+  
+- $u_{0j}$: Random parameter corresponding to postcode (level two) residual variance 
+  - *i.e.* Difference between overall log enrolments and average log enrolments postcode $j$, the school the students attends
   - This random parameter allows model to vary by the higher-level unit
 
-with, 
-$$\begin{aligned} U_{0j} &\sim N(0, \tau^2_{00}) \\ \epsilon_{ij} &\sim (0, \sigma^2) \end{aligned}$$
-Where,
-- $\tau^2$: Between-school variance
-  - indicates how each school's mean looks around overall population grand mean
-- $\sigma^2$: Within-school variance
-  - Displays how each school's log enrolments look around their own school mean
+Combining level 1 and level 2, we get the **composite model specification form**: 
 
+$$\begin{aligned} Y_{ij} & = \beta_{0i} + \epsilon_{ij} \\ & = \gamma_{00} + u_{0j} + \epsilon_{ij} \\ with \\ \ U_{0j} &\sim N(0, \tau^2_{00}) \ \text{and} \ \epsilon_{ij} \sim (0, \sigma^2) \end{aligned}$$
+Where,
+- $\beta_{0i}$ represents the rtue intercept for school $i$ --- *i.e.* expected test score level for school i when school introduced specialist mathematics
+
+- $\gamma_{00}$: The mean enrolments across all school and all years
+
+- $\tau^2$: Between-school variance between school enrolments and the overall mean across all schools and all years
+  - indicates how each school's mean looks around overall population grand mean
+  
+- $\sigma^2$: Within-school variance between individual yearly enrolments and school enrolments across all years
+  - Displays how each school's log enrolments look around their own school mean
+  
 
 ### Intraclass correlation ($ICC$)
 
 - Intraclass correlation can be conceptualised as the correlation between enrolments of two schools randomly selected from the cluster.
-
-**Intraclass correlation for schools nested within districts:**
-
-```{r}
-summary(district_lmm0.0)
-```
-
-$$\rho_i = \frac{\tau^2}{\tau^2 + \sigma^2} = \frac{0.07539}{0.07539 + 0.58248} = 0.1146$$
-- $\rho_I = 0.1146$ suggests that the correlation of enrolments among schools within the same district is approximately 0.1146
-- Although this value is relatively small compared the the $ICC$ value for schools within postcodes, it does not warrant abandoning the model as additional dependence may arise after predictors are added to the model
-  - Therefore, ICC should be an initial indicator of the warrants of the model, but small values should not immediately rule out its use.
 
 **Intraclass correlation for schools nested within postcodes**
 
@@ -246,295 +329,337 @@ summary(postcode_lmm0.0)
 ```
 
 $$\rho_i = \frac{\tau^2}{\tau^2 + \sigma^2} = \frac{0.4281}{0.4281 + 0.4336} =  0.4968$$
-
 - $\rho_I = 0.2932$ suggests that the correlation of enrolments among schools within the same postcode is approximately 0.4968.
-  - *i.e.* About 49.7% of the variation in log enrolments can be attributed to the differences among schools
-
-
-### Visualising predictions
-
-```{r}
-# Simple regression model
-ggplot(spec_math_long,
-       aes(x = completion_year, 
-           y = enrolments)) +
-  geom_line(aes(group = qcaa_school_id),
-            colour = "grey80") +
-  geom_smooth(method = "lm",
-              colour = "orange") +
-  facet_wrap(~ unit) +
-  labs(title = "Hypothetical single-level growth model")
-```
-
-- Single line used to estimate the growth of all students.
-  - Simpsom's Paradox
-
-```{r}
-# Schools nested within districts
-spec_math_long %>% 
-  mutate(.pred = predict(district_lmm1.0, newdata = .)) %>% 
-  ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(group = qcaa_district)) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
-```
-
-```{r}
-# Schools nested within postcodes
-spec_math_long %>% 
-  mutate(.pred = predict(postcode_lmm0.0, newdata = .)) %>% 
-  ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(group = school_postcode),
-            alpha = 0.8) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
-```
-
+  - *i.e.* About 49.7% of the total variation in enrolments is attributable to differences among schools rather than changes over time within schools.
+  - We can also say that average correlation for any pair of responses from the same school is 0.4968
+  
 ## Unconditional Growth model
 
-- Includes years as a level-1 predictor 
-  - Note that year is centered, `c_completion_year` = `completion_year` - min(`completion_year`)
+- Second model introduces time as a predictor at level one, with no predictors at level two, this is known as the "unconditional growth model".
+  - Note that `year92` is centered, `year92` = `completion_year` - min(`completion_year`)
+- This model allows us to assess how much within-school variability can be attributed to the systematic changes over time
+- This model feature no predictors at level two and a linear growth model at level one (*i.e.* for each school in the dataset)
 
 ```{r}
-# School nested within districts
-district_lmm1.0 <- lme4::lmer(enrolments ~ c_completion_year + (1 | qcaa_district) , 
-                              data = spec_math_long)
-
-# School nested within postcodes
-postcode_lmm1.0 <- lme4::lmer(enrolments ~ c_completion_year + (1 | school_postcode) , 
-                              data = spec_math_long)
-```
-
-$$\begin{aligned} \text{Level 1} \\ Y_{ij} &= \beta_{0i} + \beta_{1j}\color{orange}{\text{c_completion_year}_{ij}} + \epsilon_{ij} \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j} \\ \beta_{1j} &= \gamma_{10} \end{aligned}$$
-
-with, 
-$$\begin{aligned} U_{0j} &\sim N(0, \tau^2_{00}) \\ \epsilon_{ij} &\sim (0, \sigma^2) \end{aligned}$$
-
-- Level 1 refers to a single measurement in time, while level 2 refer to the individual schools
-  - $u_{0j}$ are random variables; and the model assumes that they are independent, normally distributed with expected value 0, and variance $\tau^2 = var(u_{0j})$
-  - Implying that the statistical parameter in the model is not their individual levels, but their variance $\tau^2$
-- In this model, the regression coefficient $\beta_1$ is common to all the groups
-
-### Confidence interval
-
-The parametric bootstrap is utilised to construct confidence intervals for the random effects:
-
-**Step 1**: Simulate data from the proposed model
-
-**Step 2**: Refit the model using the new responses from the simulated data & estimate its parameters
-
-**Step 3**: Repeat step 1 and 2 for a large number of times, storing the results each time
-
-**Step 4**: Compute quantiles of the bootstrapped estimated to compute the estimated confidence intervals
-
-If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level.
-
-```{r, eval=FALSE}
-# --- Schools nested within districts
-
-# Compute confidence interval
-confint(district_lmm1.0,
-        method = "boot",
-        oldNames = FALSE)
-```
-
-Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
-
-```{r, eval=FALSE}
-# --- Schools nested within postcodes
-
-# Compute confidence interval
-confint(postcode_lmm1.0,
-        method = "boot",
-        oldNames = FALSE)
-```
-
-Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
-
-```{r}
-spec_math_long %>%
-  mutate(pred_no_re = predict(district_lmm1.0, re.form = NA),
-         pred_with_re = predict(district_lmm1.0)) %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = pred_with_re,
-                group = qcaa_district,
-                colour = "mixed")) +
-  geom_line(aes(x = completion_year,
-                 y = pred_no_re,
-                 group = 1,
-                colour = "linear"),
-            size = 1.2) +
-  colorspace::scale_colour_discrete_qualitative(name = "")
-
-spec_math_long %>%
-  mutate(pred_no_re = predict(postcode_lmm1.0, re.form = NA),
-         pred_with_re = predict(postcode_lmm1.0)) %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = pred_with_re,
-                group = school_postcode,
-                colour = "mixed"),
-            alpha = 0.5) +
-  geom_line(aes(x = completion_year,
-                 y = pred_no_re,
-                 group = 1,
-                colour = "linear"),
-            size = 1.5) +
-  colorspace::scale_colour_discrete_qualitative(name = "")
-```
-
-## Unconditional growth model (random-slope)
-
-```{r}
-district_lmm2.0 <- lmer(log_enrolments ~ unit + c_completion_year + (c_completion_year | qcaa_district), 
-                        data = spec_math_long)
-
-postcode_lmm2.0 <- lmer(log_enrolments ~ c_completion_year + (c_completion_year | school_postcode), 
+postcode_lmm1.0 <- lmer(log_enrolments ~ year92 + (year92 | school_postcode),
+                        REML = TRUE,
                         data = spec_math_long,
                         control = lmerControl(optimizer ="Nelder_Mead"))
 ```
 
-- Random intercepts and slopes allow each school's intercept and slope to be estimated based on each school's observed data.
-
-**Model specification**
-
-$$\begin{aligned} \text{Level 1} \\ Y_{ti} &= \beta_{0i} + \beta_{1j}\color{orange}{\text{c_completion_year}_{ij}} + \epsilon_{ij} \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j} \\ \beta_{1j} &= \gamma_{10} + u_{1j} \end{aligned}$$
-
+$$\begin{aligned} \text{Level 1} \\ Y_{ij} &= \beta_{0j} + \beta_{1j}\textrm{year92}_{ij} + \epsilon_{ij} \quad \textrm{ where } \epsilon_{ij} \sim N(0, \sigma^2) \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j} \\ \beta_{1j} &= \gamma_{10} + u_{1j} \end{aligned}$$
 With,
 
-$$\begin{aligned} \begin{bmatrix} U_{0j} \\ U_{1j} \end{bmatrix} &\sim N \begin{bmatrix} 0 & , & \tau^2_{00} & \tau^2_{01} \\ 0 & & \tau^2_{01} & \tau^2_{10} \end{bmatrix} \\ \epsilon_{ij} &\sim (0, \sigma^2) \end{aligned}$$
+$$\left( \begin{matrix} U_{0j} \\ U_{1j} \end{matrix} \right) 
+  \sim N 
+  \left( 
+    \begin{matrix} 0 \\ 0 \end{matrix} 
+    \begin{matrix} , \end{matrix}
+    \begin{matrix} \tau^2_{00} & \tau^{2}_{01} \\ \tau_{01} & \tau^{2}_{10} \end{matrix}
+  \right)$$
 
-- The model indicated that individual growth parameter ($\beta_{0j}$ or $\beta_{1j}$) is the sum of intercept 
+- In level 1, the parameters ($\beta_{0i}$, $\beta_{1j}$ and $\sigma^2$ from $\epsilon_{ij}$) can be estimated using the linear least square regression methods
 
-### Confidence intervals
+- $\beta_{0j}$ represents the true intercept for school $i$ --- *i.e.* expected enrolment for school $i$ when specialist mathematics subject is introduced
 
-```{r, eval=FALSE}
-confint(district_lmm2.0,
-        method = "boot",
-        oldNames = FALSE)
-```
+- $\beta_{1j}$ represents the true slope for school $i$ --- *i.e.* expected yearly rate of change in math score for school $i$ over the years
 
-All predictors are significant, except the for the correlation between the `c_completion_year` and `qcaa_district`
+- $\epsilon_{ij}$ represents the deviation of school $i$ actual log(enrolment) to the expected results under the linear growth --- *i.e.* part of school enrolment that is not explained by the linear changes over time
 
-```{r, eval=FALSE}
-confint(postcode_lmm2.0,
-        method = "boot",
-        oldNames = FALSE)
-```
+- $\sigma^2$ quantifies the within-school variability (scatter of points around school's linear growth trajectories)
 
-- All predictors are significant
-  - This may suggest that this model is superior to that of `district_lmm2.0`
+- Now, the between school variability is partitioned into variability in initial status ($\tau^2_{00}$) and variability in rates of change ($\tau^{2}_{v}$)
 
-### Visualising predictions
+## Adding predictors to the model (updated)
+
+### Uncontrolled effects of `sector`
+
+- Level two covariates/predictors - Those variables which differ by school, but which remain basically constant for a given school over time --- such as catholic, government or independent (`sector`), year 11 or year 12 enrolments (`unit`).
+
+$$\begin{aligned} 
+\text{Level 1} \\ 
+Y_{ij} &= \beta_{0j} + \beta_{1j}\textrm{year92}_{ij} + \epsilon_{ij} \quad \textrm{ where } \epsilon_{ij} \sim N(0, \sigma^2) 
+\end{aligned}$$
+
+$$
+\begin{aligned}
+\text{Level 2} \\ 
+\beta_{0j} &= \gamma_{00} + \gamma_{01} sector_j + u_{0j} \\ 
+\beta_{1j} &= \gamma_{10} + \gamma_{11} sector_j + u_{1j} 
+\end{aligned}
+$$
+
+Therefore,the composite model can be written as 
+$$\begin{aligned} 
+Y_{ij} &= \beta_{0j} + \beta_{1j}\textrm{year92}_{ij} + \epsilon_{ij} \\
+&= (\gamma_{00} + \gamma_{01} sector_j + u_{0j}) + (\gamma_{10} + \gamma_{11} sector_j + u_{1j})year92_{ij} + \epsilon_{ij} \\
+&= (\gamma_{00} + \gamma_{10}year92_{ij} + \gamma_{01}sector_j + \gamma_{11}sector_{j}year92_{ij}) + (u_{0j} + u_{1j}year92_{ij} + \epsilon_{ij})
+\end{aligned}$$
 
 ```{r}
-# Schools nested within districts
-spec_math_long %>% 
-  mutate(.pred = predict(district_lmm2.0, newdata = .)) %>% 
-  ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(y = enrolments,
-                group = qcaa_school_id),
-            colour = "grey80") +
-  geom_line(aes(group = qcaa_district)) +
-  # geom_smooth(aes(x = completion_year,
-  #                 y = enrolments),
-  #                 method = "lm",
-  #             se = FALSE,
-  #             colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
+postcode_lmm2.0 <- lmer(log_enrolments ~ sector + sector:year92 + year92 + (year92 | school_postcode),
+                        REML = TRUE,
+                        data = spec_math_long,
+                        control = lmerControl(optimizer = "Nelder_Mead"))
 ```
 
-```{r, message=FALSE}
-# Schools nested within postcodes
-spec_math_long %>% 
-  mutate(.pred = predict(postcode_lmm2.0, newdata = .)) %>% 
+```{r}
+# --- Fixed effects for postcode_lmm1.0 from 2010 to 2022
+fixef1.0 <- fixef(postcode_lmm1.0)
+
+fit1.0 <- 
+  tibble(
+    # See fixed effects of composite model
+    # gamma_{00} + year08 * gamma_{01}
+    fit = fixef1.0[[1]] + c(0:30)*fixef1.0[[2]],
+    year92 = c(0:30),
+    completion_year = year92 + 1992
+    )
+
+p1 <- fit1.0 %>% 
   ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(group = school_postcode),
-            alpha = 0.5) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
+             y = fit)) +
+  geom_point() +
+  geom_line() +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  scale_y_continuous(limits = c(1.75, 2.3)) +
+  theme(legend.position = c(0.2, 0.85),
+        axis.text.x = element_text(angle = 90)) + 
+  labs(title = "Unconditional Growth",
+       x = "Completion Year",
+       y = "Predicted log(enrolments)")
 ```
 
-## Adding predictors to the model
+```{r}
+# --- Fixed effects for postcode_lmm2.0 from 1992 to 2022
+
+# Model includes sector
+# `sector` = Catholic is used as the baseline
+fixef2.0 <- fixef(postcode_lmm2.0)
+
+# \gamma_{00} + \gamma_{01}sector_j + \gamma_{10}year92_{ij} + \gamma_{11}sector_{j}year92_{ij}
+
+# Catholic (baseline)
+fit_cat2.0 <- fixef2.0[[1]] + fixef2.0[[4]]*c(0:30)
+# Government
+fit_gov2.0 <- fixef2.0[[1]] + fixef2.0[[2]] + fixef2.0[[4]]*c(0:30) + fixef2.0[[5]]*c(0:30)
+# Independent
+fit_ind2.0 <- fixef2.0[[1]] + fixef2.0[[3]] + fixef2.0[[4]]*c(0:30) + fixef2.0[[6]]*c(0:30)
+
+
+# Put fitted values into a tibble for plotting
+fit2.0 <-
+  tibble(
+    Catholic = fit_cat2.0,
+    Independent = fit_ind2.0,
+    Government = fit_gov2.0,
+    year92 = 0:30,
+    completion_year = year92 + 1992
+  )
+
+# Convert to long format
+fit2.0 <- fit2.0 %>% 
+  pivot_longer(cols = c(Catholic, Independent, Government),
+               names_to = "sector",
+               values_to = "fit")
+
+# Plot fitted model
+p2 <- fit2.0 %>% 
+  ggplot(aes(x = completion_year,
+             y = fit,
+             group = sector,
+             colour = sector)) +
+  geom_point() +
+  geom_line() +
+  scale_colour_discrete_qualitative() +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  # Change y-axis to match with fit1.0
+  scale_y_continuous(limits = c(1.75, 2.3)) +
+  # Change legend position to be on top left 
+  theme(legend.position = c(0.21, 0.83),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90)) +
+  labs(title = "Uncontrolled sector effect",
+       x = "Completion Year",
+       y = "Predicted log(enrolments)")
+
+p1 + p2  
+```
+
+### Add `unit` as a covariate
+
+$$\begin{aligned} 
+\text{Level 1} \\ 
+Y_{ij} &= \beta_{0j} + \beta_{1j}\textrm{year92}_{ij} + \epsilon_{ij} \quad \textrm{ where } \epsilon_{ij} \sim N(0, \sigma^2) 
+\end{aligned}$$
+
+$$\begin{aligned}
+\text{Level 2} \\ 
+\beta_{0j} &= \gamma_{00} + \gamma_{01}sector_j + \gamma_{02} unit_j + u_{0j} \\ 
+\beta_{1j} &= \gamma_{10} + \gamma_{11}sector_j + \gamma_{02} unit_k + u_{1j} 
+\end{aligned}$$
+
+
+$$\begin{aligned} 
+Y_{ij} 
+
+&= \beta_{0j} + \beta_{1j}\textrm{year92}_{ij} + \epsilon_{ij} \\
+
+&= (\gamma_{00} + \gamma_{01}sector_j + \gamma_{02} unit_{j} + u_{0j}) + (\gamma_{10} + \gamma_{11}sector_j + \gamma_{02} unit_{j} + u_{1j} )year92_{ij} + \epsilon_{ij} \\
+
+&= (\gamma_{00} + \gamma_{10}year92_{ij} + \gamma_{01}sector_j + \gamma_{11}sector_jyear92_{ij} + \gamma_{02}unit_{j} + \gamma_{12}unit_{j}year92_{ij}) + (u_{0j} + u_{1j}year92_{ij} + \epsilon_{ij})
+
+\end{aligned}$$
+
+```{r}
+postcode_lmm3.0 <- lmer(log_enrolments ~ sector + sector:year92 + year92 + unit + unit:year92 +
+                          (year92 | school_postcode),
+                        REML = TRUE,
+                        data = spec_math_long,
+                        control = lmerControl(optimizer = "Nelder_Mead"))
+```
+
+```{r}
+# --- Fixed effects for postcode_lmm2.0 from 1992 to 2022
+fixef3.0 <- fixef(postcode_lmm3.0)
+
+# \gamma_{00} + \gamma_{10}year92_{ij} + \gamma_{01}sector_j + \gamma_{11}sector_jyear92_{ij} + 
+# \gamma_{02}unit_{j} + \gamma_{12}unit_{j}year92_{ij}
+
+# Catholic (baseline for sector) & unit 11 (baseline)
+fix_cat_unit11 <- fixef3.0[[1]] + fixef3.0[[4]]*c(0:30)
+# Catholic (baseline for sector) & unit 12
+fix_cat_unit12 <- fixef3.0[[1]] + fixef3.0[[4]]*c(0:30) + fixef3.0[[5]] + fixef3.0[[8]]*c(0:30)
+
+# Government & unit 11 (baseline)
+fix_gov_unit11 <- fixef3.0[[1]] + fixef3.0[[4]]*c(0:30) + fixef3.0[[2]] + fixef3.0[[6]]*c(0:30) 
+# Government & unit 12
+fix_gov_unit12 <- fixef3.0[[1]] + fixef3.0[[4]]*c(0:30) + fixef3.0[[2]] + fixef3.0[[6]]*c(0:30) +
+  fixef3.0[[5]] + fixef3.0[[8]]*c(0:30)
+
+# Independent & unit 11 (baseline)
+fix_ind_unit11 <- fixef3.0[[1]] + fixef3.0[[4]]*c(0:30) + fixef3.0[[3]] + fixef3.0[[7]]*c(0:30)
+# Independent & unit 12
+fix_ind_unit12 <- fixef3.0[[1]] + fixef3.0[[4]]*c(0:30) + fixef3.0[[3]] + fixef3.0[[7]]*c(0:30) +
+  fixef3.0[[5]] + fixef3.0[[8]]*c(0:30)
+
+fit3.0 <-
+  tibble(
+    catholic_unit11 = fix_cat_unit11,
+    catholic_unit12 = fix_cat_unit12,
+    government_unit11 = fix_gov_unit11,
+    government_unit12 = fix_gov_unit12,
+    independent_unit11 = fix_ind_unit11,
+    independent_unit12 = fix_ind_unit12,
+    year92 = 0:30,
+    completion_year = year92 + 1992
+  )
+
+# Conver to long format for plotting
+fit3.0 <- fit3.0 %>% 
+  pivot_longer(cols = catholic_unit11:independent_unit12,
+               names_to = "sector_unit",
+               values_to = "fit") 
+
+fit3.0 <- fit3.0 %>% 
+  separate(col = sector_unit,
+           into = c("sector", "unit"),
+           sep = "_",
+           remove = FALSE) # Keep original variable
+
+p3 <- fit3.0 %>% 
+  ggplot(aes(x = completion_year,
+             y = fit,
+             group = sector_unit,
+             colour = sector)) +
+  geom_point(aes(shape = unit)) +
+  geom_line(aes(linetype = unit)) +
+  scale_colour_discrete_qualitative(guide = "none") +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  # Change y-axis to match with fit1.0
+  scale_y_continuous(limits = c(1.75, 2.3)) +
+  labs(title = "Uncontrolled sector and unit effect",
+       x = "Completion Year",
+       y = "Predicted log(enrolments)") +
+  theme(legend.position = c(0.15, 0.85),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90))
+```
+
+```{r, warning=FALSE}
+(p2 + p3) / guide_area() +
+  plot_layout(guides = "collect") & theme(legend.box = "horizontal") 
+```
+
+
+## Testing fixed effects
 
 - Criterion-based approach to model selection. 
 - *Note*: when computing AIC, maximum likelihood (as opposed to REML) estimates are required.
 
 Specify all models we wish to consider:
 
-
 ```{r}
 # Include all fixed predictors
-postcode_lmm_all1.0 <- lmer(log_enrolments ~ sector*unit*c_completion_year + (c_completion_year | school_postcode), 
+postcode_lmm_4.0 <- lmer(log_enrolments ~ sector*unit*year92 + (year92 | school_postcode), 
      data = spec_math_long,
      control = lmerControl(optimizer ="Nelder_Mead"),
-     REML = F)
+     REML = FALSE)
 
 # ----- Specify all models with different fixed effects
 
 # --- Remove three-way interaction
 
-postcode_lmm_all1.1 <- update(postcode_lmm_all1.0, . ~ . - sector:unit:c_completion_year)
+postcode_lmm_4.1 <- update(postcode_lmm_4.0, . ~ . - sector:unit:year92)
 
 # --- Remove two two-way interaction
 
-postcode_lmm_all1.2 <- update(postcode_lmm_all1.1, . ~. - sector:c_completion_year - unit:c_completion_year)
+postcode_lmm_4.2 <- update(postcode_lmm_4.1, . ~. - sector:year92 - unit:year92)
 
-postcode_lmm_all1.3 <- update(postcode_lmm_all1.1, . ~. - unit:sector - sector:c_completion_year)
+postcode_lmm_4.3 <- update(postcode_lmm_4.1, . ~. - unit:sector - sector:year92)
 
-postcode_lmm_all1.4 <- update(postcode_lmm_all1.1, . ~. - unit:sector - unit:c_completion_year)
+postcode_lmm_4.4 <- update(postcode_lmm_4.1, . ~. - unit:sector - unit:year92)
 
 # --- Remove one two-way interaction
 
 # Remove sector:unit interaction
-postcode_lmm_all1.5 <- update(postcode_lmm_all1.1, . ~ . - sector:unit)
+postcode_lmm_4.5 <- update(postcode_lmm_4.1, . ~ . - sector:unit)
 
-# Remove sector:c_completion_year interaction
-postcode_lmm_all1.6 <- update(postcode_lmm_all1.1, . ~ . - sector:c_completion_year)
+# Remove sector:year92 interaction
+postcode_lmm_4.6 <- update(postcode_lmm_4.1, . ~ . - sector:year92)
 
-# Remove unit:c_completion_year interaction
-postcode_lmm_all1.7 <- update(postcode_lmm_all1.1, . ~ . - unit:c_completion_year)
+# Remove unit:year92 interaction
+postcode_lmm_4.7 <- update(postcode_lmm_4.1, . ~ . - unit:year92)
 
 # --- No interactions
 
 # All 3 fixed effects
-postcode_lmm_all1.8 <- update(postcode_lmm_all1.1, . ~. - unit:c_completion_year - sector:c_completion_year - unit:c_completion_year)
+postcode_lmm_4.8 <- update(postcode_lmm_4.1, . ~. - unit:year92 - sector:year92 - unit:year92)
 
 # Remove unit fixed effects
-postcode_lmm_all1.9 <- update(postcode_lmm_all1.8, . ~. - unit)
+postcode_lmm_4.9 <- update(postcode_lmm_4.8, . ~. - unit)
 
 # Remove sector fixed effects
-postcode_lmm_all1.10 <- update(postcode_lmm_all1.8, . ~. - sector)
+postcode_lmm_4.10 <- update(postcode_lmm_4.8, . ~. - sector)
 ```
 
 ```{r}
 # ANOVA test
 postcode_anova <- anova(
-  postcode_lmm_all1.1,
-  postcode_lmm_all1.2,
-  postcode_lmm_all1.3,
-  postcode_lmm_all1.4,
-  postcode_lmm_all1.5,
-  postcode_lmm_all1.6,
-  postcode_lmm_all1.7,
-  postcode_lmm_all1.8,
-  postcode_lmm_all1.9,
-  postcode_lmm_all1.10
+  postcode_lmm_4.0,
+  postcode_lmm_4.1,
+  postcode_lmm_4.2,
+  postcode_lmm_4.3,
+  postcode_lmm_4.4,
+  postcode_lmm_4.5,
+  postcode_lmm_4.6,
+  postcode_lmm_4.7,
+  postcode_lmm_4.8,
+  postcode_lmm_4.9,
+  postcode_lmm_4.10
 )
 
 # Note: Chisq is wrong
@@ -547,22 +672,159 @@ postcode_anova %>% as_tibble() %>%
 
 - Note: `anova()` output produces $\chi^2$ test for comparing the models.
   - However, this is not correct as the sequence of models is not nested & the test is inaccurate due to the nested structure of the model.
-- Model with the best AIC corresponds to `postcode_lmm_all1.4`
+- Model with the best AIC corresponds to `postcode_lmm_4.4`
 - Model with the best BIC (which favours a smaller model) corresponds to `postcode_lmm_all1.4` 
 
-## Interpreting the best model (based on AIC)
+```{r}
+summary(postcode_lmm_4.4)
+```
+
+Turns out model does not include `unit:year92` predictor. 
+
+## Testing random effects using Parametric bootstrap
 
 ```{r}
-# Refit model with restricted likelihood estimation
+# Full model
+postcode_lmm_f1 <-
+  lme4::lmer(
+    log_enrolments ~ year92 + unit + sector + sector:year92 + (year92 | school_postcode),
+    REML = FALSE,
+    control = lmerControl(optimizer = "Nelder_Mead"),
+    data = spec_math_long
+  )
 
-# postcode_lmm_best <- lme4::lmer(log_enrolments ~ sector + unit + c_completion_year + (c_completion_year|school_postcode) +
-#                                   sector:c_completion_year,
-#                                 REML = TRUE,
-#                                 control = lmerControl(optimizer ="Nelder_Mead")
-#                                 data = spec_math_long)
+# Reduced model
+postcode_lmm_f0 <-
+  lme4::lmer(
+    log_enrolments ~ year92 + unit + sector + sector:year92 + (1 | school_postcode),
+    REML = FALSE,
+    control = lmerControl(optimizer = "Nelder_Mead"),
+    data = spec_math_long
+  )
 
-postcode_lmm_best <- update(postcode_lmm_all1.4, REML = TRUE)
-summary(postcode_lmm_best)
+# Obtain actual likelihood ratio test statistic 
+actual <- 2*(logLik(postcode_lmm_f1) - logLik(postcode_lmm_f0))
+```
+
+### Likelihood ratio test is wrong
+
+```{r}
+anova(postcode_lmm_f1, postcode_lmm_f0, test = "Chisq")
+```
+
+- When testing random effects at the boundary (such as $\sigma^2_v = 0$) or those with restricted ranges (such as $\rho_uv = 0$), using $\chi^2$ distribution to conduct likelihood ratio test is not appropriate
+  - This creates a conservative test, with p-values that are too large and not rejected enough.
+
+  
+**Parametric bootstrapping**
+
+- Examine if simplified version of model (with fewer random effects) might be preferable
+  - Remove random slope ($v_i$) in model F1 to create model F0.
+  - Remove $u_{1j}$ is equivalent to setting $\tau^2_1 = 0$ and $\rho_{01} = 0$
+- Provides better approximate the distribution of the likelihood test statistic and produce more accurate p-values by simulating data under the null hypothesis.
+
+
+    (1) Fit null model (`F0`) to obtain estimated fixed effects & variance components (this is the *"parametric"* part)
+    (2) Use estimated fixed effects & variance components from null model to regenerate new set of response (log(`enrolments`)) & associated predictors for each observations as the original dataset (this is the *"bootstrap"* part)
+    (3) Fit both reduced model (`F0`) and the full model (`F1`) to the new data
+    (4) Compute likelihood ratio test statistic comparing Models F0 and F1
+    (5) Repeat 2-4 a large number of times (*e.g.* 1,000)
+    (6) Produce histogram of likelihood ratio statistics to illustrate its behaviour when null hypothesis is true
+    (7) Compute $p$-value = Proportion of times bootstrapped test statistic is greater than observed test statistic
+    
+```{r echo = TRUE, warning=FALSE, eval=FALSE}
+# ----- Run parametric bootstrap
+
+set.seed(3142)
+
+# Generate 1,000 bootstrap samples
+nsim <- 1000
+
+# Vector storing 1,000 observations relating to likelihood ratio test-statistic
+lrstat <- numeric(1000)
+
+for(i in seq(nsim))
+{
+  # --- Use estimated fixed effects & variance components to regenerate new set of response
+  
+  y <- simulate(postcode_lmm_f0)[,1] 
+  
+  # --- Fit both reduced model (`F0`) and the full model (`F1`) to the new data
+  
+  # null model (no random slope)
+  bnull <-
+    lme4::lmer(
+      y ~ year92 + unit + sector + sector:year92 + (1 | school_postcode),
+      REML = FALSE,
+      control = lmerControl(optimizer = "Nelder_Mead"),
+      data = spec_math_long
+    )
+  
+  # Proposed data (with random slope)
+  balt <-
+    lme4::lmer(
+      y ~ year92 + unit + sector + sector:year92 + (year92 | school_postcode),
+      REML = FALSE,
+      control = lmerControl(optimizer = "Nelder_Mead"),
+      data = spec_math_long
+    )
+  
+  # --- Compute likelihood ratio statistic
+  
+  lrstat[i] <- 2*(logLik(balt)-logLik(bnull)) 
+}
+```
+
+```{r}
+x = seq(0, max(lrstat), length = 100)
+y = dchisq(x =x,
+           df = 2)
+
+nullLRT <- as_tibble(cbind(nullLRT = lrstat,
+                x = x,
+                y = y)) 
+
+nullLRT %>% 
+  ggplot() +
+  geom_histogram(aes(x = nullLRT,
+                     y = ..density..),
+                 bins = 25,
+                 colour = "black",
+                 fill = "white") +
+  geom_line(aes(x = x, 
+                y = y)) 
+```
+
+As our likelihood ratio test statistic is 747.1021, the larger model is significantly better.
+
+## Interpreting the best model
+
+```{r}
+postcode_lmm_f <- lme4::lmer(
+    log_enrolments ~ year92 + unit + sector + sector:year92 + (year92 | school_postcode),
+    REML = TRUE,
+    control = lmerControl(optimizer = "Nelder_Mead"),
+    data = spec_math_long
+  )
+
+# Plot population regression line
+spec_math_long <- spec_math_long %>% 
+  mutate(yhat = predict(postcode_lmm_f, re.form = ~0))
+
+# Postcode-to-Postcode variation
+spec_math_long <- spec_math_long %>% 
+  mutate(yhat_postcode = predict(postcode_lmm_f, re.form = ~ (year92 | school_postcode)))
+```
+
+```{r}
+# Normal regression line
+spec_math_long %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = yhat,
+                group = sector,
+                colour = sector)) +
+  facet_wrap(~ unit)
 ```
 
 
@@ -583,12 +845,10 @@ as_tibble(ranef(postcode_lmm_best)) %>%
              nrow = 1) 
 ```
 
-
-
 ```{r}
 # Extract slope coefficient
 slope_coef <- as_tibble(ranef(postcode_lmm_best)) %>% 
-  filter(term == "c_completion_year") %>% 
+  filter(term == "year92") %>% 
   mutate(slope_coef = if_else(condval > 0,
                               true = "positive",
                               false = "negative")) %>% 
@@ -660,12 +920,6 @@ spec_math_long %>%
 ```
 
 
-## Model Diagnostics
-
-```{r}
-
-```
-
 
 
 ### Pseudo $R^2$
@@ -686,10 +940,77 @@ $$Pseudo R^2 = \frac{\sigma^2_{\text{unconditional}} - \sigma^2_{\text{condition
 - Add third-level to the data structure (*e.g.* schools nested within postcodes and sector) 
   - use `anova()` to test if adding third structure provides a better fit
 
-  
 # Others
 - Look at maps
 
+# Confidence interval
+
+The parametric bootstrap is utilised to construct confidence intervals for the random effects:
+
+**Step 1**: Simulate data from the proposed model
+
+**Step 2**: Refit the model using the new responses from the simulated data & estimate its parameters
+
+**Step 3**: Repeat step 1 and 2 for a large number of times, storing the results each time
+
+**Step 4**: Compute quantiles of the bootstrapped estimated to compute the estimated confidence intervals
+
+If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level.
+
+```{r, eval=FALSE}
+# --- Schools nested within districts
+
+# Compute confidence interval
+confint(district_lmm1.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+
+```{r, eval=FALSE}
+# --- Schools nested within postcodes
+
+# Compute confidence interval
+confint(postcode_lmm1.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+
+```{r}
+spec_math_long %>%
+  mutate(pred_no_re = predict(district_lmm1.0, re.form = NA),
+         pred_with_re = predict(district_lmm1.0)) %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = pred_with_re,
+                group = qcaa_district,
+                colour = "mixed")) +
+  geom_line(aes(x = completion_year,
+                 y = pred_no_re,
+                 group = 1,
+                colour = "linear"),
+            size = 1.2) +
+  colorspace::scale_colour_discrete_qualitative(name = "")
+
+spec_math_long %>%
+  mutate(pred_no_re = predict(postcode_lmm1.0, re.form = NA),
+         pred_with_re = predict(postcode_lmm1.0)) %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = pred_with_re,
+                group = school_postcode,
+                colour = "mixed"),
+            alpha = 0.5) +
+  geom_line(aes(x = completion_year,
+                 y = pred_no_re,
+                 group = 1,
+                colour = "linear"),
+            size = 1.5) +
+  colorspace::scale_colour_discrete_qualitative(name = "")
+```
 
 # All schools
 
@@ -778,5 +1099,22 @@ mathsci_all %>%
              scales = "free_y") 
 ```
 
+### Confidence intervals
 
+```{r, eval=FALSE}
+confint(district_lmm2.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+All predictors are significant, except the for the correlation between the `year92` and `qcaa_district`
+
+```{r, eval=FALSE}
+confint(postcode_lmm2.0,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+- All predictors are significant
+  - This may suggest that this model is superior to that of `district_lmm2.0`
 
