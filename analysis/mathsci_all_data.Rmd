@@ -222,6 +222,21 @@ mathsci_all <- mathsci_all %>%
                 ~ as.factor(.x)))
 ```
 
+```{r}
+# Fix schools (`qcaa_school_id`) with two postcodes
+mathsci_all <- mathsci_all %>% 
+  mutate(school_postcode = case_when(
+    school_postcode == 4170 ~ 4171,
+    school_postcode == 4178 ~ 4179,
+    school_postcode == 4214 ~ 4215,
+    school_postcode == 4031 ~ 4030,
+    school_postcode == 4573 ~ 4561,
+    school_postcode == 4064 ~ 4000,
+    school_postcode == 4208 ~ 4209,
+    TRUE ~ school_postcode
+  ))
+```
+
 
 ```{r, eval=FALSE}
 # ----- Write data
