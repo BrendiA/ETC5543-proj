@@ -194,7 +194,11 @@ mathsci_all <- rbind(mathsci_old, mathsci_new)
 mathsci_all <- mathsci_all %>% 
   mutate(qcaa_district = str_to_title(qcaa_district)) %>% 
   # Remove words that has a space (\s), followed by the word "District"
-  mutate(qcaa_district = str_remove_all(qcaa_district, "\\sDistrict")) 
+  mutate(qcaa_district = str_remove_all(qcaa_district, "\\sDistrict")) %>% 
+  # Remove "-" in Brisbane Ipswich district
+  mutate(qcaa_district = if_else(qcaa_district == "Brisbane - Ipswich",
+                                  true = "Brisbane Ipswich",
+                                  false = qcaa_district))
 
 # --- Clean sector names
 
@@ -210,6 +214,25 @@ mathsci_all <- mathsci_all %>%
   mutate(sector = as.factor(sector)) %>% 
   # Remove overseas sector (SOVS), and sectors with only 1 entry (JIND, SPEC) and SCOL
   filter(sector %in% c("Catholic", "Independent", "Government"))
+```
+
+
+```{r}
+# Fix schools (`qcaa_school_id`) with two postcodes
+mathsci_all <- mathsci_all %>% 
+  # Change data type to facilitate change in incorrect school postcodes
+  mutate(school_postcode = as.character(school_postcode)) %>% 
+  # Fix incorrect postcodes
+  mutate(school_postcode = case_when(
+    school_postcode == "4170" ~ "4171",
+    school_postcode == "4178" ~ "4179",
+    school_postcode == "4214" ~ "4215",
+    school_postcode == "4031" ~ "4030",
+    school_postcode == "4573" ~ "4561",
+    school_postcode == "4064" ~ "4000",
+    school_postcode == "4208" ~ "4209",
+    TRUE ~ school_postcode
+  ))
 
 # --- Change data types
 mathsci_all <- mathsci_all %>% 
@@ -220,21 +243,6 @@ mathsci_all <- mathsci_all %>%
                           qcaa_district,
                           sector),
                 ~ as.factor(.x)))
-```
-
-```{r}
-# Fix schools (`qcaa_school_id`) with two postcodes
-mathsci_all <- mathsci_all %>% 
-  mutate(school_postcode = case_when(
-    school_postcode == 4170 ~ 4171,
-    school_postcode == 4178 ~ 4179,
-    school_postcode == 4214 ~ 4215,
-    school_postcode == 4031 ~ 4030,
-    school_postcode == 4573 ~ 4561,
-    school_postcode == 4064 ~ 4000,
-    school_postcode == 4208 ~ 4209,
-    TRUE ~ school_postcode
-  ))
 ```
 
 
