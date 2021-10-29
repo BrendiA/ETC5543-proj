@@ -1,5 +1,5 @@
 ---
-title: "mixed-model2"
+title: "Multilevel Model for Specialist Mathematics"
 author: "Brendi Ang"
 date: "17/10/2021"
 output: 
@@ -184,37 +184,49 @@ spec_math %>%
 
 # Getting the data ready for modelling
 
-```{r}
-p1 <- spec_math_long %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id),
-            alpha = 0.7) +
-  facet_wrap(~ unit) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 1),
-                     labels = seq(1992, 2022, by = 1)) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(title = "Enrolments excluding 2019")
+## Removing graduating cohort 2019
 
-p2 <- spec_math_long %>% 
-  filter(completion_year != 2019) %>% 
+```{r}
+# Year 11 enrolments
+p1 <- spec_math_long %>% 
+  filter(unit == "year_11_enrolments") %>% 
   ggplot() +
   geom_line(aes(x = completion_year,
                 y = enrolments,
                 group = qcaa_school_id),
-            alpha = 0.7) +
+            alpha = 0.5,
+            colour = "grey40") +
   facet_wrap(~ unit) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 1),
-                     labels = seq(1992, 2022, by = 1)) +
-  theme(axis.text.x = element_text(angle = 90)) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(axis.text.x = element_text(angle = 90),
+        title = element_text(size = 8)) +
   labs(title = "Enrolments including 2019")
+
+# Year 11 enrolments
+p2 <- spec_math_long %>% 
+  filter(unit == "year_11_enrolments",
+         completion_year != 2019) %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = enrolments,
+                group = qcaa_school_id),
+            alpha = 0.5,
+            colour = "grey40") +
+  facet_wrap(~ unit) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(axis.text.x = element_text(angle = 90),
+        title = element_text(size = 8)) +
+  labs(title = "Enrolments excluding 2019")
 
 p1 / p2
 ```
 
 - As the 2019 graduating cohort were part of the Queensland's first Prep Year cohort in 2007, there were significantly lesser enrolments in that year.
   - Accordingly, 2019 will be removed from the analysis as it is an outlier.
+
+## Linearise response variable using log transformation
 
 ```{r}
 p1 <- spec_math_long %>% 
@@ -316,7 +328,7 @@ spec_math_long <- spec_math_long %>%
   - Level 3 refers to the different school postcodes (`school_postcode`) or district (`qcaa_district`)
   
 ```{r}
-# ----- Fit null model
+# ----- Fit possible null model
 
 # Two-level: Within schools
 model0.0 <- lmer(log_enrolments ~ 1 + (1 | qcaa_school_id),
@@ -686,11 +698,11 @@ model1.1_ml <- lmer(log_enrolments ~ year92 +
 bootstrapLRT <- bootstrapAnova(mA = model1.0_ml,
                                m0 = model1.1_ml, 
                                B = 1000)
+
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/spec-math-model1.0-vs-model1.1.rda"))
 ```
 
 ```{r}
-save(bootstrapLRT, file = here::here("data/model1.0-vs-model1.1.rda"))
-
 load(file = here::here("data/model1.0-vs-model1.1.rda"))
 ```
 
@@ -746,6 +758,7 @@ $$\begin{aligned}
 \end{aligned}$$
 
 ```{r}
+# Add sector
 model2.0 <- lmer(log_enrolments ~ year92 + sector + sector*year92 +
                 (year92 | qcaa_district:qcaa_school_id) + 
                 (1 | qcaa_district),
@@ -1005,7 +1018,7 @@ Specify all models we wish to consider:
 model4.0 <- lmer(log_enrolments ~ sector*unit*year92 + (year92 | qcaa_district:qcaa_school_id) + 
                 (1 | qcaa_district), 
      data = spec_math_long,
-     control = lmerControl(optimizer ="Nelder_Mead"),
+     control = lmerControl(optimizer = "Nelder_Mead"),
      REML = FALSE)
 
 # ----- Specify all models with different fixed effects
@@ -1066,7 +1079,7 @@ model_anova <- anova(
 model_anova %>% 
   as_tibble() %>% 
   select(npar, AIC, BIC, logLik) %>% 
-  mutate(model = rownames(postcode_anova),
+  mutate(model = rownames(model_anova),
          .before = npar) %>% 
   arrange(AIC)
 ```
@@ -1160,12 +1173,12 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
                                m0 = bnull, 
                                B = 1000)
 
-save(bootstrapLRT, file = here::here("data/model5.0-vs-model5.1.rda"))
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/spec-math-model5.0-vs-model5.1.rda"))
 ```
 
 
 ```{r}
-load(here::here("data/model5.0-vs-model5.1.rda"))
+load(here::here("data/bootstrapLRT/spec-math-model5.0-vs-model5.1.rda"))
 
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
@@ -1223,14 +1236,14 @@ confint(model_f,
 
 Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
 
-# Interpreting best model
+# Interpreting final model
 
 ## Fixed effects
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
 
-- Level two (schools within districts) will contain new predictor(`sector`)
+- Level two (schools within districts) 
   $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + u_{0ij} \\ 
     \pi_{1ij} = \beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij}$$
     
@@ -1348,6 +1361,7 @@ ranef_school_f <- as_tibble(ranef(model_f)) %>%
                         true = "Intercept",
                         false = "Slope")) 
 
+# Random effects for between districts
 ranef_district_f <- as_tibble(ranef(model_f)) %>% 
   filter(grp %in% unique(spec_math$qcaa_district)) %>% 
   group_by(term) %>% 
@@ -1382,6 +1396,8 @@ ggplot(ranef_district_f) +
              colour = "red",
              size = 1)
 ```
+
+## Predictions
 
 ```{r}
 set.seed(136)
@@ -1519,7 +1535,10 @@ broom.mixed::augment(model_f) %>%
 ```
 
 
+# Limitations
 
+- No proportions dataset 
+- Only indicator variables are available
 
 
 
