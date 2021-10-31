@@ -22,9 +22,6 @@ subj_old <- read_csv(here::here("data/qcaa_stats_subj_part_1992-2019.csv")) %>%
   filter(is.na(X13)) %>% 
   select(-c(X13, X14))
 
-read_csv(here::here("data/qcaa_stats_subj_part_1992-2019.csv"))  %>% 
-  select(-c(X13, X14))
-
 # --- Enrolments for all subjects from 2020 to 2021 (Sep)
 
 # Concatenate file names
@@ -98,7 +95,6 @@ subj_new <- subj_new %>%
   mutate(across(.cols = unit_1_enrolments:short_course_enrolments, ~ as.numeric(.x)))
 ```
 
-
 ```{r}
 # ----- Enrolment for mathematics and science subjects 
 
@@ -119,7 +115,8 @@ math_old <- subj_old %>%
 sci_old <- subj_old %>% 
   filter(subject_name %in% c("Agricultural Science",
                              "Biology",
-                             "Chemistry", 
+                             "Chemistry",
+                             "Earth Science",
                              "Marine Science",
                              "Physics",
                              "Agricultural Practices",
@@ -127,7 +124,10 @@ sci_old <- subj_old %>%
                              "Science in Practice"
                              )) %>% 
   # Create new variable to distinguish maths and science
-  mutate(subject = "Sciences")
+  mutate(subject = "Sciences") %>% 
+  mutate(subject_name = if_else(subject_name == "Earth Science",
+                                true = "Earth & Environmental Science",
+                                false = subject_name))
 
 # Combine Maths and Science subjects for the old QCE system
 mathsci_old <- rbind(math_old, sci_old)
@@ -153,7 +153,7 @@ sci_new <- subj_new %>%
                              "Agricultural Science",
                              "Biology",
                              "Chemistry", 
-                             "Earth and Environmental Science", # new
+                             "Earth & Environmental Science", # new
                              "Marine Science",
                              "Physics",
                              "Psychology", # New
@@ -169,6 +169,10 @@ sci_new <- subj_new %>%
 mathsci_new <- rbind(math_new, sci_new) %>% 
   # Remove short courses
   filter(subject_name != "Numeracy")
+```
+```{r}
+sci_old %>% 
+  distinct(subject_name, qcaa_subject_id)
 ```
 
 ```{r}
@@ -216,7 +220,6 @@ mathsci_all <- mathsci_all %>%
   filter(sector %in% c("Catholic", "Independent", "Government"))
 ```
 
-
 ```{r}
 # Fix schools (`qcaa_school_id`) with two postcodes
 mathsci_all <- mathsci_all %>% 
@@ -243,10 +246,56 @@ mathsci_all <- mathsci_all %>%
                           qcaa_district,
                           sector),
                 ~ as.factor(.x)))
+
+# Reformat subject id for science in practice so they're consistent
+mathsci_all <- mathsci_all %>%  
+  mutate(qcaa_subject_id = as.character(qcaa_subject_id)) %>% 
+  mutate(qcaa_subject_id = as.factor(if_else(qcaa_subject_id == "6248", 
+                                   true = "6421",
+                                   false = qcaa_subject_id)))
 ```
+
+```{r}
+# --- Clean school names
+
+mathsci_all <- mathsci_all %>% 
+  # Remove parentheses relating to suburb
+  mutate(school_name = str_remove(school_name, " \\(.*\\)")) %>% 
+  # Remove suburb by extracting all text before the last "-"
+  mutate(school_name = str_replace(school_name, pattern = '(.*)\\s+\\-.*', '\\1'))
+
+mathsci_all <- mathsci_all %>% 
+  mutate(school_name = case_when(
+    # Capital K in MacKillop
+    school_name == "Clairvaux Mackillop College" ~ "Clairvaux MacKillop College",
+    # Extra " ' " in Girls
+    school_name == "St Aidan's Anglican Girls' School" ~ "St Aidan's Anglican Girls School",
+    # Missing "School"
+    school_name == "Aviation High" ~ "Aviation High School",
+    # "&" to "and"
+    school_name == "Aboriginal & Islander Independent Community School" ~ "Aboriginal and Islander Independent Community School",
+    # Extra "The"
+    school_name == "The SCOTS PGC College" ~ "Scots PGC College",
+    school_name == "Kingston Centre for Continuing Secondary Education" ~ "Kingston Learning College",
+    # Exclude suburb
+    school_name == "Marist College Emerald" ~ "Marist College",
+    # Change to official school name
+    school_name == "The Cathedral School" ~ "The Cathedral School of St Anne and St James",
+    # Exclude suburb
+    school_name == "St Andrew's Catholic College Redlynch Valley" ~ "St Andrew's Catholic College",
+    # Exclude suburb
+    school_name == "Spinifex State College Mount Isa" ~ "Spinifex State College",
+    # Error in school name
+    school_name == "Cloncurry State School P-12" ~ "Cloncurry State School",
+    # Error in school name
+    school_name == "Cloncurry State School P" ~ "Cloncurry State School",
+    TRUE ~ school_name
+  ))
+``` 
 
 
 ```{r, eval=FALSE}
 # ----- Write data
 write_csv(mathsci_all, here::here("data/mathsci_all.csv"))
 ```
+
