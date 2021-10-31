@@ -1,5 +1,5 @@
 ---
-title: "Multilevel Model for Chemistry"
+title: "Multilevel Model for Agricultural Practices"
 author: "Brendi Ang"
 date: "17/10/2021"
 output: 
@@ -41,15 +41,15 @@ mathsci_all <- mathsci_all %>%
                           school_postcode
                           ),
                 ~ as.factor(.x))) 
-```
+``` 
 
 # The dataset
 
 ```{r}
-chem <- mathsci_all %>% 
-  filter(subject_name == "Chemistry")
+agri_sci <- mathsci_all %>% 
+  filter(subject_name == "Agricultural Science")
 
-chem_long <- chem %>% 
+agri_sci_long <- agri_sci %>% 
   pivot_longer(cols = year_11_enrolments:year_12_enrolments,
                names_to = "unit",
                values_to = "enrolments") 
@@ -61,7 +61,7 @@ chem_long <- chem %>%
 
 ```{r}
 # Year 11 enrolments
-p1 <- chem_long %>% 
+p1 <- agri_sci_long %>% 
   filter(unit == "year_11_enrolments") %>% 
   ggplot() +
   geom_line(aes(x = completion_year,
@@ -77,7 +77,7 @@ p1 <- chem_long %>%
   labs(title = "Enrolments including 2019")
 
 # Year 11 enrolments
-p2 <- chem_long %>% 
+p2 <- agri_sci_long %>% 
   filter(unit == "year_11_enrolments",
          completion_year != 2019) %>% 
   ggplot() +
@@ -98,16 +98,16 @@ p1 / p2
 
 - As the 2019 graduating cohort were part of the Queensland's first Prep Year cohort in 2007, there were significantly lesser enrolments in that year.
   - Accordingly, 2019 will be removed from the analysis as it is an outlier.
-
+  
 ## Linearise response variable using log transformation
 
 ```{r}
-p1 <- chem_long %>%
+p1 <- agri_sci_long %>%
   ggplot(aes(x = enrolments)) +
   geom_histogram() +
   labs(title = "Before log transformation")
 
-p2 <- chem_long %>%
+p2 <- agri_sci_long %>%
   ggplot(aes(x = log(enrolments))) +
   geom_histogram() +
   labs(title = "After log transformation")
@@ -117,7 +117,7 @@ p1 / p2
 # Time plot after log transformation
 # 20 randomly selected schools
 set.seed(1995)
-chem_long %>% 
+agri_sci_long %>% 
   filter(unit == "year_11_enrolments",
          completion_year != 2019,
          enrolments != 0,
@@ -132,7 +132,7 @@ chem_long %>%
 ## Removing completion year that offer chemistry subject for year 11 students but not for year 12 (and vice versa)
 
 ```{r}
-p1 <- chem %>% 
+p1 <- agri_sci %>% 
   ggplot() +
   geom_point(aes(x = year_11_enrolments,
                  y = year_12_enrolments),
@@ -142,7 +142,7 @@ p1 <- chem %>%
   labs(title = "All observations") +
   theme(title = element_text(size = 8))
 
-p2 <- chem %>% 
+p2 <- agri_sci %>% 
   filter(year_12_enrolments != 0,
          year_11_enrolments != 0) %>% 
   ggplot() +
@@ -150,40 +150,35 @@ p2 <- chem %>%
                  y = year_12_enrolments),
              alpha = 0.3) +
   geom_abline(slope = 1,
-              colour = "redo") +
+              colour = "red") +
   labs(title = "Removed obs. with enrolments in Year 11 but not in Year 12 (and vice versa)") +
   theme(title = element_text(size = 8))
         
 p1 / p2
 ```
 
-- Red line shows year 11 enrolments = year 12 enrolments
-- Some schools offered Specialist mathematics subjects for Year 11, but not for Year 12 (and vice versa)
-  - These zero enrolment numbers will be removed from the analysis
-
 ```{r}
-chem <- chem %>% 
+agri_sci <- agri_sci %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
   # Remove schools that offer subject in one of Year 11 or Year 12 only
   filter(year_12_enrolments != 0,
          year_11_enrolments != 0)
 
-chem_long <- chem_long %>% 
+agri_sci_long <- agri_sci_long %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
   # Remove schools that offer subject in one of Year 11 or Year 12 only
   filter(enrolments != 0)
 
 # Rescale `completion_year` variable
-chem_long <- chem_long %>%
+agri_sci_long <- agri_sci_long %>%
   # Recentre year
-  mutate(year92 = completion_year - min(completion_year),
+  mutate(year94 = completion_year - min(completion_year),
          .before = completion_year) %>% 
   # Log transformation of response variable
   mutate(log_enrolments = log(enrolments))
 ```
-
 
 # Unconditional means model
 
@@ -192,15 +187,15 @@ chem_long <- chem_long %>%
 
 # Two-level: Within schools
 model0.0 <- lmer(log_enrolments ~ 1 + (1 | qcaa_school_id),
-                 data = chem_long)
+                 data = agri_sci_long)
 
 # Three-level: Schools nested within postcodes
 model0.1 <- lmer(log_enrolments ~ 1 + (1 | school_postcode/qcaa_school_id),
-                 data = chem_long)
+                 data = agri_sci_long)
 
 # Three-level Schools nested within districts
 model0.2 <- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
-                 data = chem_long)
+                 data = agri_sci_long)
 ```
 
 ```{r}
@@ -219,29 +214,35 @@ model0_AIC %>%
                 bootstrap_options = c("hovered", "striped"))
 ```
 
-- Based on the AIC values, the nested (three-level) model performs better than the two-level multilevel model
-  - Therefore, we will pick `model0.2`, which corresponds to the model where schools are nested within districts 
+
+- There are 94 schools nested in 69 postcodes
+- And 94 schools nested within 13 districts
+- Based on the AIC, the model with schools nested within postcodes is the best.
 
 ## Intraclass correlation ($ICC$)
 
-The **level-two ICC** is the correlation between a school $i$ from a certain district $j$ in time $t$ and in time $t^*$:
+```{r}
+summary(model0.1)
+```
 
-$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.5888}{(0.5888 + 0.1077 + 0.2094)} = 0.6450$$
+The **level-two ICC** is the correlation between a school $i$ from a certain postcode $j$ in time $t$ and in time $t^*$:
 
-The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific district $j$. 
+$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.4052}{(0.4052 + 0.1228 + 0.2918)} = 0.4943$$
 
-$$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1077}{(0.5888 + 0.1077 + 0.2094)} = 0.1189$$
+The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific postcode $j$. 
+
+$$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1228}{(0.4052 + 0.1228 + 0.2918)} = 0.1498$$
 
 # Unconditional Growth model
 
 ```{r}
 # Unconditional growth model
-model1.0 <- lmer(log_enrolments ~ year92 + 
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (year92 | qcaa_district),
+model1.0 <- lmer(log_enrolments ~ year94 + 
+                (year94 | school_postcode:qcaa_school_id) + 
+                (year94 | school_postcode),
                 REML = TRUE,
                 control = lmerControl(optimizer = "bobyqa"),
-                data = chem_long)
+                data = agri_sci_long)
 ```
 
 - Note: no boundary constraint
@@ -251,13 +252,14 @@ model1.0 <- lmer(log_enrolments ~ year92 +
 ## Adding `sector`
 
 ```{r}
-model2.0 <- lmer(log_enrolments ~ year92 + sector + sector*year92 +
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (year92 | qcaa_district),
+model2.0 <- lmer(log_enrolments ~ year94 + sector + sector*year94 +
+                (year94 | school_postcode:qcaa_school_id) + 
+                (year94 | school_postcode),
                 REML = TRUE,
                 control = lmerControl(optimizer = "bobyqa"),
-                data = chem_long)
+                data = agri_sci_long)
 ```
+
 
 ### Visualising fixed effects
 
@@ -265,16 +267,15 @@ model2.0 <- lmer(log_enrolments ~ year92 + sector + sector*year92 +
 fixef(model2.0)
 ```
 
-
 ## Adding `sector` and `unit`
 
 ```{r}
-model3.0 <- lmer(log_enrolments ~ year92 + sector + sector:year92 + unit + unit:year92 +
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (year92 | qcaa_district),
+model3.0 <- lmer(log_enrolments ~ year94 + sector + sector*year94 + unit + unit:year94 +
+                (year94 | school_postcode:qcaa_school_id) + 
+                (year94 | school_postcode),
                 REML = TRUE,
                 control = lmerControl(optimizer = "bobyqa"),
-                data = chem_long)
+                data = agri_sci_long)
 ```
 
 ### Visualising fixed effects
@@ -286,42 +287,42 @@ fixef(model3.0)
 # Testing fixed effects
 
 ```{r}
-model4.0 <- lmer(log_enrolments ~ year92*sector*unit +
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (year92 | qcaa_district),
+model4.0 <- lmer(log_enrolments ~ year94*sector*unit +
+                (year94 | school_postcode:qcaa_school_id) + 
+                (year94 | school_postcode),
                 REML = FALSE,
                 control = lmerControl(optimizer = "bobyqa"),
-                data = chem_long)
+                data = agri_sci_long)
 
 # ----- Specify all models with different fixed effects
 
 # --- Remove three-way interaction
 
-model4.1 <- update(model4.0, . ~ . - sector:unit:year92)
+model4.1 <- update(model4.0, . ~ . - sector:unit:year94)
 
 # --- Remove two two-way interaction
 
-model4.2 <- update(model4.1, . ~. - sector:year92 - unit:year92)
+model4.2 <- update(model4.1, . ~. - sector:year94 - unit:year94)
 
-model4.3 <- update(model4.1, . ~. - unit:sector - sector:year92)
+model4.3 <- update(model4.1, . ~. - unit:sector - sector:year94)
 
-model4.4 <- update(model4.1, . ~. - unit:sector - unit:year92)
+model4.4 <- update(model4.1, . ~. - unit:sector - unit:year94)
 
 # --- Remove one two-way interaction
 
 # Remove sector:unit interaction
 model4.5 <- update(model4.1, . ~ . - sector:unit)
 
-# Remove sector:year92 interaction
-model4.6 <- update(model4.1, . ~ . - sector:year92)
+# Remove sector:year94 interaction
+model4.6 <- update(model4.1, . ~ . - sector:year94)
 
-# Remove unit:year92 interaction
-model4.7 <- update(model4.1, . ~ . - unit:year92)
+# Remove unit:year94 interaction
+model4.7 <- update(model4.1, . ~ . - unit:year94)
 
 # --- No interactions
 
 # Include 3 fixed effects
-model4.8 <- update(model4.1, . ~. - unit:year92 - sector:year92 - unit:year92)
+model4.8 <- update(model4.1, . ~. - unit:year94 - sector:year94 - unit:year94)
 
 # Remove unit fixed effects
 model4.9 <- update(model4.8, . ~. - unit)
@@ -329,7 +330,6 @@ model4.9 <- update(model4.8, . ~. - unit)
 # Remove sector fixed effects
 model4.10 <- update(model4.8, . ~. - sector)
 ```
-
 
 ```{r}
 # ANOVA test
@@ -356,7 +356,7 @@ model_anova %>%
   arrange(AIC)
 ```
 
-- Best model is `model4.7`
+- The AIC and BIC favoured `model4.3`.
 
 # Parametric bootstrap to test random effects
 
@@ -403,21 +403,22 @@ bootstrapAnova <- function(mA, m0, B = 1000){
 # Best model based on AIC and BIC
 
 # Proposed model
-balt <- lmer(log_enrolments ~ year92 + sector + year92:sector + sector:unit + unit + 
-               (year92 | qcaa_district:qcaa_school_id) +      
-               (year92 | qcaa_district) ,
+balt <- lmer(log_enrolments ~ year94 + sector + unit + year94:unit + 
+               (year94 | school_postcode:qcaa_school_id) +      
+               (year94 | school_postcode),
              REML = FALSE,
-             control = lmerControl(optimizer = "Nelder_Mead"),
-             data = chem_long)
+             control = lmerControl(optimizer = "bobyqa"),
+             data = agri_sci_long)
 
 # Null model
-bnull <- lmer(log_enrolments ~ year92 + sector + year92:sector + sector:unit + unit + 
-               (year92 | qcaa_district:qcaa_school_id) +      
-               (1 | qcaa_district),
+bnull <- lmer(log_enrolments ~ year94 + sector + unit + year94:unit + 
+               (year94 | school_postcode:qcaa_school_id) +      
+               (year94 | school_postcode),
               REML = FALSE,
-              control = lmerControl(optimizer = "Nelder_Mead"),
-              data = chem_long)
+              control = lmerControl(optimizer = "bobyqa"),
+              data = agri_sci_long)
 
+# Actual likelihood ratio test statistic
 actual <- 2*(logLik(balt) - logLik(bnull))
 ```
 
@@ -426,12 +427,16 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
                                m0 = bnull, 
                                B = 1000)
 
-save(bootstrapLRT, file = here::here("data/chem-model5.0-vs-model5.1.rda"))
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/agri-sci-model5.0-vs-model5.1.rda"))
 ```
 
 ```{r}
-load(here::here("data/chem-model5.0-vs-model5.1.rda"))
+load(here::here("data/bootstrapLRT/agri-sci-model5.0-vs-model5.1.rda"))
 
+as_tibble(bootstrapLRT)
+```
+
+```{r}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -455,16 +460,18 @@ ggplot(nullLRT.1) +
 # Confidence interval
 
 ```{r}
-# Fit best model with restricted maximum likelihood estimates
-model_f <- lmer(log_enrolments ~ year92 + sector + year92:sector + sector:unit + unit + 
-               (year92 | qcaa_district:qcaa_school_id) +      
-               (year92 | qcaa_district) ,
-             REML = TRUE,
-             control = lmerControl(optimizer = "Nelder_Mead"),
-             data = chem_long)
+model_f <-
+  lmer(
+    log_enrolments ~ year94 + sector + unit + year94:unit +
+      (year94 | school_postcode:qcaa_school_id) +
+      (year94 | school_postcode),
+    REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa"),
+    data = agri_sci_long
+  )
 ```
 
-```{r, eval=FALSE}
+```{r}
 confint(model_f,
         method = "boot",
         oldNames = FALSE)
@@ -472,65 +479,61 @@ confint(model_f,
 
 # Interpreting final model
 
-## Composite model
+## Fixed effects
+
+```{r}
+log_enrolments ~ year94 + sector + unit + year94:unit + (year94 | school_postcode:qcaa_school_id) + (year94 | school_postcode)
+```
+
 
 - Level one (measurement variable)
-$$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
+$$Y_{tij} = \pi_{0ij} + \pi_{1ij}year94_{tij} + \epsilon_{tij}$$
 
-- Level two (schools within districts) 
-  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij} \\ 
-    \pi_{1ij} = \beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij}$$
+- Level two (schools within postcodes) 
+  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + u_{0ij} \\ 
+    \pi_{1ij} = \beta_{10j} + \beta_{11j}unit_{ij} + u_{1ij}$$
 
-- Level three (districts)
+- Level three (postcodes)
   $$\beta_{00j} = \gamma_{000} + r_{00j} \\
     \beta_{01j} = \gamma_{010} + r_{01j} \\
     \beta_{02j} = \gamma_{020} + r_{02j} \\
-    \beta_{03j} = \gamma_{030} + r_{03j} \\
     \beta_{10j} = \gamma_{100} + r_{10j} \\
-    \beta_{11j} = \gamma_{110} + r_{11j}$$
+    \beta_{11j} = \gamma_{110} + r_{11j} $$
 
-Therefore, the composite model can be written as
 
-$$\begin{aligned} 
-Y_{tij} =\ &\pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
+Therefore, the composite model can be written as:
 
-        =\ &(\beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij}) + 
-           (\beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij})year92_{tij} + \epsilon_{tij} \\ 
-           
-        =\ & \left[(\gamma_{000} + r_{00j}) + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + 
-              (\gamma_{030} + r_{03j})sector_{ij}unit_{ij} + u_{0ij} \right] + \\ 
-            & \left[(\gamma_{100} + r_{10j}) + (\gamma_{110} + r_{11j})sector_{ij} + u_{1ij} \right]year92_{tij} + \epsilon_{tij} \\
-            
-        =\ & \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{020}sector_{ij}unit_{ij} +
-            \gamma_{100}year92_{tij} + \gamma_{110}year92_{tij}sector_{ij} \right] + \\ 
-            & \left[ r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{03j}sector_{ij}unit_{ij} + u_{0ij} + r_{10j}year92_{tij} +
-            r_{11j}year92_{tij}sector_{ij} + u_{1ij} \epsilon_{tij} \right] 
-\end{aligned}$$
+$$\begin{aligned} Y_{tij} =\ & \pi_{0ij} + \pi_{1ij}year94_{tij} + \epsilon_{tij} \\ =\ & (\beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}unit_{ij} + u_{1ij})year94_{tij} + \epsilon_{tij} \\ =\ & \left[\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + u_{0ij} \right] \\ & \left[\gamma_{100} + r_{10j} + (\gamma_{110} + r_{11j})unit_{ij} + u_{1ij} \right]year94_{tij} + \epsilon_{tij} \\ = \ & \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{100}year94_{tij} + \gamma_{110}unit_{ij}year94_{tij} \right] + \\ & \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{10j}year94_{tij} + r_{11j}year94_{tij} + u_{01j} + u_{1ij} \right]  \end{aligned}$$
 
 ```{r}
 # Extract fixed effects for final model
 fixef_f <- fixef(model_f)
 
-# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{020}sector_{ij}unit_{ij} + \gamma_{100}year92_{tij} +
-# \gamma_{110}year92_{tij}sector_{ij}
+# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{100}year94_{tij} +
+# \gamma_{110}unit_{ij}year94_{tij}
 
 # Catholic (unit 11)
 fit_cat_unit11 <- fixef_f[[1]] + fixef_f[[2]] * c(0:30)
 
 # Catholic (unit 12)
-fit_cat_unit12 <- fixef_f[[1]] + fixef_f[[5]] + fixef_f[[2]] * c(0:30) 
-  
+fit_cat_unit12 <-
+  fixef_f[[1]] + fixef_f[[5]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
+
 # Government (unit 11)
-fit_gov_unit11 <- fixef_f[[1]] + fixef_f[[3]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
+fit_gov_unit11 <-
+  fixef_f[[1]] + fixef_f[[3]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
 
 # Government (unit 12)
-fit_gov_unit12 <- fixef_f[[1]] + fixef_f[[3]] + fixef_f[[5]] + fixef_f[[8]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
-  
+fit_gov_unit12 <-
+  fixef_f[[1]] + fixef_f[[3]] + fixef_f[[5]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
+
 # Independent (unit 11)
-fit_ind_unit11 <- fixef_f[[1]] + fixef_f[[4]] + fixef_f[[2]] * c(0:30) + fixef_f[[7]] * c(0:30)
-  
+fit_ind_unit11 <-
+  fixef_f[[1]] + fixef_f[[4]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
+
 # Independent (unit 12)
-fit_ind_unit12 <- fixef_f[[1]] + fixef_f[[4]] + fixef_f[[5]] + fixef_f[[9]] + fixef_f[[2]] * c(0:30) + fixef_f[[7]] * c(0:30)
+fit_ind_unit12 <-
+  fixef_f[[1]] + fixef_f[[4]] + fixef_f[[5]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
 ```
 
 ```{r}
@@ -549,7 +552,6 @@ fit_f <-
     completion_year = year92 + 1992
   )
 
-# Convert to long form for plotting
 fit_f <- fit_f %>% 
   pivot_longer(cols = Catholic_unit11:Independent_unit12,
                names_to = "sector_unit",
@@ -586,12 +588,12 @@ fit_f %>%
 ## Random effects
 
 ```{r}
-# Random effects for schools within districts
+# Random effects for schools within postcodes
 ranef_school_f <- as_tibble(ranef(model_f)) %>%
-  filter(!grp %in% unique(mathsci_all$qcaa_district)) %>% 
+  filter(grpvar == "school_postcode:qcaa_school_id") %>% 
   separate(
     col = grp,
-    into = c("qcaa_district", "qcaa_school_id"),
+    into = c("school_postcode", "qcaa_school_id"),
     sep = ":",
     remove = FALSE
   ) %>% 
@@ -600,22 +602,23 @@ ranef_school_f <- as_tibble(ranef(model_f)) %>%
                         true = "Intercept",
                         false = "Slope")) 
 
-# Random effects for between districts
+
+
+# Random effects for between postcodes
 ranef_district_f <- as_tibble(ranef(model_f)) %>% 
-  filter(grp %in% unique(mathsci_all$qcaa_district)) %>% 
-  group_by(term) %>% 
-  rename(qcaa_district = grp) %>% 
+  filter(grpvar == "school_postcode") %>% 
   # Rename intercept and slope names
   mutate(term =  as.character(term),
          term = factor(if_else(
            term == "(Intercept)",
            true = "Intercept",
-           false = term
-         )))
+           false = "slope"
+         ))) %>% 
+  rename(school_postcode = grp)
 ```
 
 ```{r}
-# Plot random effect for schools nested within districts
+# Plot random effect for schools nested within postcodes
 ranef_school_f %>% 
   group_by(term) %>% 
   # Reorder group based on by conditional means for plotting
@@ -631,13 +634,13 @@ ranef_school_f %>%
 ```
 
 ```{r}
-# Plot random effects for between districts
+# Plot random effects for between postcodes
 ranef_district_f %>% 
 # Reorder group based on by conditional means
-  mutate(qcaa_district = fct_reorder(qcaa_district, condval)) %>% 
+  mutate(school_postcode = fct_reorder(school_postcode, condval)) %>% 
   ggplot() + 
   geom_point(aes(x = condval,
-                 y = qcaa_district)) +
+                 y = school_postcode)) +
   geom_vline(xintercept = 0,
              colour = "red",
              size = 1) +
@@ -645,13 +648,13 @@ ranef_district_f %>%
              scales = "free_x")
 ```
 
-
 ## Predictions
 
 ```{r}
 # Predictions for 20 randomly selected schools for year 11 enrolments
-set.seed(136)
-chem_long %>% 
+set.seed(2021)
+
+agri_sci_long %>% 
   filter(unit == "year_11_enrolments") %>% 
   filter(qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
   mutate(pred = predict(model_f, newdata = .)) %>% 
@@ -665,20 +668,6 @@ chem_long %>%
             colour = "orange") +
   facet_wrap(~ qcaa_school_id)
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

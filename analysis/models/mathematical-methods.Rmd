@@ -656,7 +656,7 @@ ranef_district_f %>%
 set.seed(35)
 
 math_mthd_long %>% 
-  filter(unit == "year_11_enrolments") %>% 
+  filter(unit == "year_11_enrolments") %>%
   filter(qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
   mutate(pred = predict(model_f, newdata = .)) %>% 
   ggplot() +
@@ -668,20 +668,27 @@ math_mthd_long %>%
                 group = qcaa_school_id),
             colour = "orange") +
   facet_wrap(~ qcaa_school_id)
+
+
 ```
 
 ```{r}
-mathsci_all %>% 
-  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
-               names_to = "unit",
-               values_to = "enrolments") %>% 
+math_mthd_long %>% 
+  filter(qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
   filter(unit == "year_11_enrolments") %>% 
+  mutate(pred = predict(model_f, newdata = .)) %>% 
   ggplot() +
   geom_line(aes(x = completion_year,
                 y = enrolments,
                 group = qcaa_school_id)) +
-  facet_wrap(~ subject_name)
+  geom_line(aes(x = completion_year,
+                y = exp(pred),
+                group = qcaa_school_id),
+            colour = "orange") +
+  facet_wrap(~ qcaa_school_id)
 ```
+
+
 
 
 

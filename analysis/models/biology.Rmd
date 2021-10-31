@@ -43,13 +43,14 @@ mathsci_all <- mathsci_all %>%
                 ~ as.factor(.x))) 
 ```
 
+
 # The dataset
 
 ```{r}
 bio <- mathsci_all %>% 
   filter(subject_name == "Biology")
 
-bio_long <- chem %>% 
+bio_long <- bio %>% 
   pivot_longer(cols = year_11_enrolments:year_12_enrolments,
                names_to = "unit",
                values_to = "enrolments") 
@@ -92,7 +93,7 @@ p1 / p2
 # Time plot after log transformation
 # 20 randomly selected schools
 set.seed(9254)
-chem_long %>% 
+bio_long %>% 
   filter(unit == "year_11_enrolments",
          completion_year != 2019,
          qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
@@ -208,11 +209,12 @@ summary(model0.2)
 
 The **level-two ICC** is the correlation between a school $i$ from a certain district $k$ in time $t$ and in time $t^*$:
 
-$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.5718}{(0.5718 + 0.1044 + 0.2032)} = 0.6502$$
+$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.6153}{(0.6153 + 0.1113 + 0.2204)} = 0.6497$$
+
 
 The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific school $j$. 
 
-$$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1044}{(0.5718 + 0.1044 + 0.2032)} = 0.1187$$
+$$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1113}{(0.6153 + 0.1113 + 0.1113)} = 0.1175$$
 
 # Unconditional growth model
 
@@ -272,7 +274,7 @@ model4.0 <- lmer(log_enrolments ~ year92*sector*unit +
                 (year92 | qcaa_district),
                 REML = FALSE,
                 control = lmerControl(optimizer = "bobyqa"),
-                data = chem_long)
+                data = bio_long)
 
 # ----- Specify all models with different fixed effects
 
@@ -334,9 +336,7 @@ model_anova %>%
          .before = npar) %>% 
   arrange(AIC)
 ```
-```{r}
-summary(model4.7)
-```
+- Based on the AIC, the best model corresponds to `model4.1`
 
 # Parametric bootstrap to test random effects
 
@@ -380,30 +380,23 @@ bootstrapAnova <- function(mA, m0, B = 1000){
 ```
 
 ```{r}
-# Best model based on AIC and BIC
+# Best model based on AIC
 
 # Proposed model
-balt <- lmer(log_enrolments ~ year92 + sector + year92:sector + sector:unit + unit + 
-                (year92 | qcaa_district:qcaa_school_id) +  
-                (year92 | qcaa_district),
+balt <- lmer(log_enrolments ~ year92 + sector + unit + year92:sector + year92:unit + sector:unit +
+               (year92 | qcaa_district:qcaa_school_id) +  
+               (year92 | qcaa_district),
              REML = FALSE,
-             control = lmerControl(optimizer = "bobyqa"),
              data = bio_long)
 
 # Null model
-bnull <- lmer(log_enrolments ~ year92 + sector + year92:sector + sector:unit + unit + 
-                (year92 | qcaa_district:qcaa_school_id) +  
-                (1 | qcaa_district),
+bnull <- lmer(log_enrolments ~ year92 + sector + unit + year92:sector + year92:unit + sector:unit +
+               (year92 | qcaa_district:qcaa_school_id) +  
+               (1 | qcaa_district),
               REML = FALSE,
-              control = lmerControl(optimizer = "bobyqa"),
               data = bio_long)
 
 actual <- 2*(logLik(balt) - logLik(bnull))
-```
-
-```{r}
-# ANOVA suggests smaller model better, but check parametric bootstrap
-anova(balt, bnull)
 ```
 
 ```{r, eval=FALSE, warning=FALSE, message=FALSE}
@@ -417,6 +410,10 @@ save(bootstrapLRT, file = here::here("data/bootstrapLRT/bio-model5.0-vs-model5.1
 ```{r}
 load(here::here("data/bootstrapLRT/bio-model5.0-vs-model5.1.rda"))
 
+as_tibble(bootstrapLRT)
+```
+
+```{r}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -430,12 +427,241 @@ ggplot(nullLRT.1) +
     color = "black",
     fill = "white"
   ) + 
-  # geom_vline(xintercept = 1000, size = 1) +
+  geom_vline(xintercept = actual, 
+             size = 1,
+             colour = "red") +
   geom_line(aes(x = x, y = y)) +
   # xlim(c(-.5,10)) +
   labs(y = "Density",
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
+
+Bootstrap likelihood ratio test suggests the smaller model ($\chi^2$ = 2.6948, $p$-value = 0.145).
+
+# Confidence interval
+
+```{r}
+# Fit best model with restricted maximum likelihood estimates
+model_f <- lmer(log_enrolments ~ year92 + sector + unit + year92:sector + year92:unit + sector:unit +
+                  (year92 | qcaa_district:qcaa_school_id) +  
+                  (1 | qcaa_district),
+             REML = TRUE,
+             control = lmerControl(optimizer = "bobyqa"),
+             data = bio_long)
+```
+
+```{r, eval=FALSE}
+confint(model_f,
+        method = "boot",
+        oldNames = FALSE)
+```
+
+# Interpreting final model
+
+## Composite model
+
+
+- Level one (measurement variable)
+$$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
+
+- Level two (schools within districts) 
+  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij} \\ 
+    \pi_{1ij} = \beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij}$$
+
+- Level three (districts)
+  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
+    \beta_{01j} = \gamma_{010} + r_{01j} \\
+    \beta_{02j} = \gamma_{020} + r_{02j} \\
+    \beta_{03j} = \gamma_{030} + r_{03j} \\
+    \beta_{10j} = \gamma_{100} \\
+    \beta_{11j} = \gamma_{110} $$
+
+Therefore, the composite model can be written as
+
+$$\begin{aligned} 
+Y_{tij} =\ &\pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
+
+        =\ &(\beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij}) + 
+           (\beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij})year92_{tij} + \epsilon_{tij} \\ 
+           
+        =\ & \left[(\gamma_{000} + r_{00j}) + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + 
+              (\gamma_{030} + r_{03j})sector_{ij}unit_{ij} + u_{0ij} \right] + \\ 
+            & \left[\gamma_{100} + \gamma_{110}sector_{ij} + u_{1ij} \right]year92_{tij} + \epsilon_{tij} \\
+            
+        =\ & \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{020}sector_{ij}unit_{ij} +
+            \gamma_{100}year92_{tij} + \gamma_{110}year92_{tij}sector_{ij} \right] + \\ 
+            & \left[ r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{03j}sector_{ij}unit_{ij} + u_{0ij} + u_{1ij} \epsilon_{tij}
+            \right] 
+\end{aligned}$$
+
+## Fixed effects
+
+```{r}
+# Extract fixed effects for final model
+fixef_f <- fixef(model_f)
+
+# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{020}sector_{ij}unit_{ij} + 
+# \gamma_{100}year92_{tij} + \gamma_{110}year92_{tij}sector_{ij}
+
+# Catholic (unit 11)
+fit_cat_unit11 <- fixef_f[[1]] + fixef_f[[2]] * c(0:30)
+
+# Catholic (unit 12)
+fit_cat_unit12 <- fixef_f[[1]] + fixef_f[[5]] + fixef_f[[2]] * c(0:30) 
+  
+# Government (unit 11)
+fit_gov_unit11 <- fixef_f[[1]] + fixef_f[[3]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
+
+# Government (unit 12)
+fit_gov_unit12 <- fixef_f[[1]] + fixef_f[[3]] + fixef_f[[5]] + fixef_f[[9]] + fixef_f[[2]] * c(0:30) + fixef_f[[6]] * c(0:30)
+  
+# Independent (unit 11)
+fit_ind_unit11 <- fixef_f[[1]] + fixef_f[[4]] + fixef_f[[2]] * c(0:30) + fixef_f[[7]] * c(0:30)
+  
+# Independent (unit 12)
+fit_ind_unit12 <- fixef_f[[1]] + fixef_f[[4]] + fixef_f[[5]] + fixef_f[[9]] + fixef_f[[2]] * c(0:30) + fixef_f[[7]] * c(0:30)
+```
+
+```{r}
+fit_f <-
+  tibble(
+    # Unit 11
+    Catholic_unit11 = fit_cat_unit11,
+    Government_unit11 = fit_gov_unit11,
+    Independent_unit11 = fit_ind_unit11,
+    # Unit 12
+    Catholic_unit12 = fit_cat_unit12,
+    Government_unit12 = fit_gov_unit12,
+    Independent_unit12 = fit_ind_unit12,
+    # Time variables
+    year92 = 0:30,
+    completion_year = year92 + 1992
+  )
+
+# Convert to long form for plotting
+fit_f <- fit_f %>% 
+  pivot_longer(cols = Catholic_unit11:Independent_unit12,
+               names_to = "sector_unit",
+               values_to = "fit") 
+
+fit_f <- fit_f %>% 
+  # Separate sector and unit into two variables
+  separate(sector_unit, 
+           into = c("sector", "unit"), 
+           sep = "_",
+           remove = FALSE) # Keep old variable for grouping in plot
+```
+
+```{r}
+fit_f %>% 
+  ggplot(aes(x = completion_year,
+             y = fit,
+             group = sector_unit,
+             colour = sector)) +
+  geom_line(aes(linetype = unit),
+            size = 1,
+            alpha = 0.7) +
+  scale_colour_discrete_qualitative() +
+  labs(title = "Fixed effects of final model",
+       x = "Completion Year",
+       y = "Predicted log enrolments") +
+  theme(legend.position = "bottom",
+        legend.direction = "vertical",
+        axis.text.x = element_text(angle = 90)) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) 
+```
+
+## Random effects
+
+```{r}
+# Random effects for schools within districts
+ranef_school_f <- as_tibble(ranef(model_f)) %>%
+  filter(!grp %in% unique(mathsci_all$qcaa_district)) %>% 
+  separate(
+    col = grp,
+    into = c("qcaa_district", "qcaa_school_id"),
+    sep = ":",
+    remove = FALSE
+  ) %>% 
+  # Rename intercept and slope names
+  mutate(term = if_else(term == "(Intercept)",
+                        true = "Intercept",
+                        false = "Slope")) 
+
+# Random effects for between districts
+ranef_district_f <- as_tibble(ranef(model_f)) %>% 
+  filter(grp %in% unique(mathsci_all$qcaa_district)) %>% 
+  group_by(term) %>% 
+  rename(qcaa_district = grp) %>% 
+  # Rename intercept and slope names
+  mutate(term =  as.character(term),
+         term = factor(if_else(
+           term == "(Intercept)",
+           true = "Intercept",
+           false = term
+         )))
+```
+
+```{r}
+# Plot random effect for schools nested within districts
+ranef_school_f %>% 
+  group_by(term) %>% 
+  # Reorder group based on by conditional means for plotting
+  mutate(qcaa_school_id = fct_reorder(qcaa_school_id, condval)) %>% 
+  ggplot() +
+  geom_point(aes(x = condval,
+                 y = qcaa_school_id)) +
+  geom_vline(xintercept = 0,
+             size = 1,
+             colour = "red") +
+  facet_wrap(~ term,
+             scales = "free_x")
+```
+
+```{r}
+# Plot random effects for between districts
+ranef_district_f %>% 
+# Reorder group based on by conditional means
+  mutate(qcaa_district = fct_reorder(qcaa_district, condval)) %>% 
+  ggplot() + 
+  geom_point(aes(x = condval,
+                 y = qcaa_district)) +
+  geom_vline(xintercept = 0,
+             colour = "red",
+             size = 1) 
+```
+
+## Predictions
+
+```{r}
+# Predictions for 20 randomly selected schools for year 11 enrolments
+set.seed(136)
+bio_long %>% 
+  filter(unit == "year_11_enrolments") %>% 
+  filter(qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
+  mutate(pred = predict(model_f, newdata = .)) %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = log(enrolments),
+                group = qcaa_school_id)) +
+  geom_line(aes(x = completion_year,
+                y = pred,
+                group = qcaa_school_id),
+            colour = "orange") +
+  facet_wrap(~ qcaa_school_id)
+```
+
+
+
+
+
+
+
+
+
+
+
 
 
 
