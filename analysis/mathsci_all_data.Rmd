@@ -170,10 +170,6 @@ mathsci_new <- rbind(math_new, sci_new) %>%
   # Remove short courses
   filter(subject_name != "Numeracy")
 ```
-```{r}
-sci_old %>% 
-  distinct(subject_name, qcaa_subject_id)
-```
 
 ```{r}
 # Group unit 1 & 2, 3 & 4 enrolments into year 11 and year 12 enrolments respectively
@@ -293,9 +289,37 @@ mathsci_all <- mathsci_all %>%
   ))
 ``` 
 
+```{r}
+# --- Change subject type based on the new QCE system (General or applied)
+mathsci_all <- mathsci_all %>% 
+  mutate(subject_type = case_when(
+    # General mathematics
+    subject_name == "General Mathematics" ~  "General",
+    subject_name == "Mathematical Methods" ~ "General",
+    subject_name == "Specialist Mathematics" ~ "General",
+    # Applied mathematics
+    subject_name == "Essential Mathematics" ~ "Applied",
+    # General sciences
+    subject_name == "Agricultural Science" ~  "General",
+    subject_name == "Biology" ~  "General",
+    subject_name == "Chemistry" ~ "General",
+    subject_name == "Earth & Environmental Science" ~ "General",
+    subject_name == "Marine Science" ~ "General",
+    subject_name == "Physics" ~ "General",
+    subject_name == "Psychology" ~ "General",
+    # Applied sciences
+    subject_name == "Agricultural Practices" ~ "Applied",
+    subject_name == "Aquatic Practices" ~ "Applied",
+    subject_name == "Science in Practice" ~ "Applied"
+  ))
+```
+
+
 
 ```{r, eval=FALSE}
 # ----- Write data
 write_csv(mathsci_all, here::here("data/mathsci_all.csv"))
 ```
+
+
 
