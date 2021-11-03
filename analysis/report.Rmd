@@ -1,311 +1,359 @@
 ---
-title: "mixed-model2"
+title: "Report"
 author: "Brendi Ang"
-date: "17/10/2021"
-output: html_document
+date: "01/11/2021"
+output: 
+  bookdown::html_document2:
+    theme: flatly
+    citation_package: biblatex
+    toc: true
+    number_sections: false
+    toc_float:
+      collapsed: yes 
+bibliography: references.bib
+biblio-style: apa
+link-citations: yes
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE)
 ```
 
-```{r, include=FALSE}
+```{r}
 library(tidyverse)
+library(broom)
+library(broom.mixed)
+library(colorspace)
+library(kableExtra)
 library(lme4)
+library(naniar)
+library(patchwork)
 
 ggplot2::theme_set(theme_bw())
+
+select <- dplyr::select
 ```
 
-```{r, include=FALSE, warning=FALSE}
+```{r}
 # Read-in data
 mathsci_all <- read_csv(here::here("data/mathsci_all.csv"),
+                        # Changing variable type avoids errors
                         col_types = cols(doe_centre_code = col_factor()))
 
-# --- Clean district names
-
-# Remove 'District' in `qcaa_district` as there are repeated districts
+# Convert data types
 mathsci_all <- mathsci_all %>% 
-  mutate(qcaa_district = str_to_title(qcaa_district)) %>% 
-  # Remove words that has a space (\s), followed by the word "District"
-  mutate(qcaa_district = str_remove_all(qcaa_district, "\\sDistrict")) 
-
-# --- Clean sector names
-
-mathsci_all <- mathsci_all %>% 
-  mutate(sector = case_when(
-    sector == "SCAT" ~ "Catholic",
-    sector == "SIND" ~ "Independent",
-    sector == "SGOV" ~ "Government",
-    TRUE ~ sector
-  )) %>% 
-  # Remove overseas sector (SOVS), and sectors with only 1 entry (JIND, SPEC) and SCOL
-  filter(sector %in% c("Catholic", "Independent", "Government"))
-
-# --- Change data types
-mathsci_all <- mathsci_all %>% 
-  mutate(across(.cols = c(subject_name,
+  mutate(across(.cols = c(qcaa_subject_id, 
                           subject_type,
                           qcaa_school_id,
-                          school_postcode,
-                          qcaa_district),
-                ~ as.factor(.x)))
+                          sector,
+                          school_postcode
+                          ),
+                ~ as.factor(.x))) 
 ```
 
-# Specialist Mathematics
+# Objectives
 
-```{r}
-# --- Specialist Mathematics subject 
-spec_math <- mathsci_all %>%
-  filter(subject_name == "Specialist Mathematics") 
+This report critically analyses the trends in enrolments for senior secondary (Year 11 and Year 12) mathematics and science subjects in Queensland. Initially, the dataset will be described, from how the dataset is obtained to how the raw data was restructured, cleaned and augmented to facilitate the analysis. This includes imputing missing values, using regular expressions to manipulate character strings and relational joins to combine datasets with matching observations. Next, exploratory data analysis will be conducted using modern data exploration tools to uncover the underlying structures and interesting features of enrolment in all subjects; This will consist of graphical displays such as time plots to better understand the dataset. 
 
-# --- Convert to long format for modelling & plotting
-spec_math_long <- spec_math %>% 
-  pivot_longer(cols = year_11_enrolments:year_12_enrolments,
-               names_to = "unit",
-               values_to = "enrolments") 
+The aforementioned measures taken above gives readers an intuition of the dataset, the report will subsequently focus on building a statistical model to predict enrolments for senior secondary mathematics and science subjects. As the dataset is longitudinal, that is, involving a collection of data (enrolments) from the same school across multiple time points, a multilevel model is deemed appropriate for this analysis. This section of the report will further elaborate the methodology in producing the most appropriate model and the predictions from the 'best' model.
+
+The following research questions guided the report:
+
+(1) What are the underlying trends in senior secondary mathematics and science subjects?
+(2) Are there differences in enrolments in the new QCE system (after 2020) as compared to the old QCE system (before 2020)?
+
+# Data and Motivation
+
+## Extracting the dataset
+
+```{r data-description}
+tibble(
+  Variable =
+    c(
+      # Enrolment details
+      "completion_year",
+      "year_11_enrolments",
+      "year_12_enrolments",
+      # Subject details
+      "qcaa_subject_id",
+      "subject_name",
+      "subject",
+      "subject_type",
+      # School details
+      "qcaa_school_id",
+      "school_name",
+      "doe_centre_code",
+      "qcaa_district",
+      "school_postcode",
+      "sector"
+    ),
+  Description =
+    c(
+      # Enrolment details
+      "Graduation cohort's year of completion",
+      "Number of Year 11 students enrolled in the subject",
+      "Number of Year 12 students enrolled in the subject",
+      # Subject details
+      "QCAA subject ID",
+      "Subject name",
+      "Mathematics or Science subject",
+      "Type of subject (General, applied or short courses)",
+      # School detail
+      "QCAA school ID",
+      "School Name",
+      "Department of Education Centre Code",
+      "School district",
+      "School postcode",
+      "School sector (Government, Independent, Catholic)"
+    )) %>% 
+  kable(caption = "Description of the dataset used for the analysis") %>% 
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("hovered", "striped")) %>% 
+  pack_rows(index = c("Enrolment information" = 3,
+                    "Subject information" = 4,
+                    "School information" = 6)) 
 ```
 
-```{r}
+The dataset used for this analysis encompasses enrolment information for all participating schools in the QCE system, and can be extracted in the Queensland Curriculum and Assessment Authority (QCAA) website, where the old enrolments data for the old QCE system (enrolments spanning from 1992 to 2019) can be found under the ["Statistics before 2020" toggle](https://www.qcaa.qld.edu.au/news-data/statistics/statistics-before-2020) (@school-participation) while the enrolments data for the new QCE system can be found under the ["Statistics from 2020" toggle](https://www.qcaa.qld.edu.au/news-data/statistics/statistics-from-2020). 
 
-spec_math_long <- spec_math_long %>% 
-  mutate(c_completion_year= completion_year - min(completion_year),
-         .before = completion_year)
-```
+Each row (observation) corresponds to a school's enrolment information for a subject in a given year, in addition to the school and subject details. The dataset can be broken down into the three main components, as seen above (Table \@ref(tab:data-description)). The data above has been cleaned and is ready for the format that allows for analysis, the further sections will describe the data wrangling process in details.
 
-- Often helpful to *rescale* time variable so the first measurement occasion is the *zero point*
-  - Thereby giving the intercept the interpretation of baseline, or initial status on the dependent variable
-  
+## The new QCE system
 
-# Mixed Models
+Senior schooling is a pivotal moment for Queensland students as most students transition into tertiary education. The new QCE system was introduced from Year 11 students in 2019, where Overall Position (OP) scores will be replaced by the new Australian Tertiary Admission Rank (ATAR) system in assisting universities in selecting applications in their causes. For this reason, the Queensland Core Skills (QCS) test for year 12 students, which has been in place since 1992 is abolished (after Year 12 in 2019) for the new ATAR system. The ATAR is a inter subject percentile-rank (as opposed to a mark), where students are ranked relative to their age group; To be specific, ATAR is expressed on a 2,000 point scale from 99.95 down to 0.00 in steps of 0.05. 
 
-- When building a multilevel model, we begin with a null or empty model.
-- Predictors are then added to the model in a forward stepwise approach
-- Overall fit of the model is considered throughout the model building process
+Queensland ATARs are based on a student's:
 
-## Null (random-intercept) model
+  - Best five general subject results, or
+  - Best results in four General subjects, plus one Applied subject, or
+  - Best results in four General subjects, plus one VET qualification at Certificate III or above
 
-- Fit a null model in which there are no predictors, only the intercept
-- Null model provides useful information in understanding the structure of the data
-  - Obtain estimates of residuals & intercept variance when only clustering by postcode
-  - Provides estimates of the variance among the schools $\sigma^2$, and among the clusters $\tau^2$
-  - Can be used to compute intraclass correlation 
-  
-```{r}
-# ----- Fit null model
+In the ATAR calculation, only *one* applied subject can be included in the ATAR calculation. For instance, if a student enrols in Essential Mathematics (applied subject) and Science in Practice	(Applied subject), only the higher of both 
 
-# School nested within districts
-district_lmm1.0 <- lmer(enrolments ~ c_completion_year + (1 | qcaa_district) , data = spec_math_long)
+## A new suite of senior mathematics and science subjects
 
-# School nested within postcodes
-postcode_lmm1.0 <- lmer(enrolments ~ c_completion_year + (1 | school_postcode) , data = spec_math_long)
-```
+In light of the new system, a new suite of senior subjects are reviews and redeveloped, along with new ones introduced. The new senior syllabuses include **general (extension) subjects** for students who wish to pursue tertiary pathways, vocational education and training, and work. These subjects will have four summative assessment --- three internal and one external examination at the end of Year 12, which are set and marked by independent teacher assessors accredited the Queensland Curriculum and Assessment Authority. On the other hand, **applied (essential) subjects** are mainly for students interested in pathways beyond school that primarily lead to vocational education and training or directly to work. These subjects tend to be more 'real world' focus and do not have external examinations but have a total of four summative internal assessments.
 
-**Model specification:**
+Notably, this report will not cover **short courses**, which are suited for students who wants to establish a basis for further education or work, typically leading to further vocational education and training.
 
-$$\begin{aligned} \text{Level 1} \\ Y_{ti} &= \beta_{0i} + \beta_{1j}\color{steelblue}{\text{c_completion_year}_{ij}} + \epsilon_{ij} \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j} \\ \beta_{1j} &= \gamma_{10} \end{aligned}$$
+### Mathematics
 
-- Level 1 refers to a single measurement in time, while level 2 refer to the individual schools
-
-With, 
-$$\begin{aligned} U_{0j} &\sim N(0, \tau^2_{00}) \\ \epsilon_{ij} &\sim (0, \sigma^2) \end{aligned}$$
-
-### Intraclass correlation ($ICC$)
-
-```{r}
-summary(district_lmm1.0)
-```
-
-
-**Intraclass correlation for schools nested within districts:**
-
-$$\rho_i = \frac{\tau^2}{\tau^2 + \sigma^2} = \frac{22.26}{22.26 + 169.63} = 0.1160$$
-
-- $\rho_I = 0.1160$ suggests that the correlation of enrolments among schools within the same district is approximately 0.1160
-- Although this value is relatively small compared the the $ICC$ value for schools within postcodes, it does not warrant abandoning the model as additional dependence may arise after predictors are added to the model
-  - Therefore, ICC should be an initial indicator of the warrants of the model, but small values should not immediately rule out its use.
-
-**Intraclass correlation for schools nested within postcodes**
-
-```{r}
-summary(postcode_lmm1.0)
-```
-
-$$\rho_i = \frac{\tau^2}{\tau^2 + \sigma^2} = \frac{55.76}{55.76 + 134.39} =  0.2932$$
-- $\rho_I = 0.2932$ suggests that the correlation of enrolments among schools within the same postcode is approximately 0.2932 
-
-### Confidence interval
-
-```{r}
-# --- Schools nested within districts
-
-# Compute confidence interval
-confint(district_lmm1.0,
-        method = "boot",
-        oldNames = FALSE)
-```
-
-Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
-
-```{r}
-# --- Schools nested within postcodes
-
-# Compute confidence interval
-confint(postcode_lmm1.0,
-        method = "boot",
-        oldNames = FALSE)
-```
-
-Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
-
-### Visualising predictions
-
-```{r}
-# Simple regression model
-ggplot(spec_math_long,
-       aes(x = completion_year, 
-           y = enrolments)) +
-  geom_line(aes(group = qcaa_school_id),
-            colour = "grey80") +
-  geom_smooth(method = "lm") +
-  facet_wrap(~ unit) +
-  labs(ttle = "Hypothetical single-level growth model")
-```
-
-- Single line used to estimate the growth of all students.
-
-```{r}
-# Schools nested within districts
-spec_math_long %>% 
-  mutate(.pred = predict(district_lmm1.0, newdata = .)) %>% 
-  ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(group = qcaa_district)) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
-```
-
-```{r}
-# Schools nested within postcodes
-spec_math_long %>% 
-  mutate(.pred = predict(postcode_lmm1.0, newdata = .)) %>% 
-  ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(group = school_postcode),
-            alpha = 0.8) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
-```
-
-
-## Unconditional growth model (random-slope)
-
-```{r}
-district_lmm2.0 <- lmer(enrolments ~ c_completion_year + (c_completion_year | qcaa_district), 
-                        data = spec_math_long,
-                        control = lmerControl(optimizer ="Nelder_Mead")) # Change optimiser for convergence
-
-postcode_lmm2.0 <- lmer(enrolments ~ c_completion_year + (c_completion_year | school_postcode), 
-                        data = spec_math_long)
-```
-
-- Random intercepts and slopes allow each school's intercept and slope to be estimated based on each school's observed data.
-
-
-**Model specification**
-
-$$\begin{aligned} \text{Level 1} \\ Y_{ti} &= \beta_{0i} + \beta_{1j}\color{steelblue}{\text{c_completion_year}_{ij}} + \epsilon_{ij} \\ \text{Level 2} \\ \beta_{0j} &= \gamma_{00} + u_{0j} \\ \beta_{1j} &= \gamma_{10} + u_{1j} \end{aligned}$$
-With,
-
-$$\begin{aligned} \begin{bmatrix} U_{0j} \\ U_{1j} \end{bmatrix} &\sim N \begin{bmatrix} 0 & , & \tau^2_{00} & \tau^2_{01} \\ 0 & & \tau^2_{01} & \tau^2_{10} \end{bmatrix} \\ \epsilon_{ij} &\sim (0, \sigma^2) \end{aligned}$$
-
-### Confidence intervals
-
-### Visualising predictions
-
-```{r}
-# Schools nested within districts
-spec_math_long %>% 
-  mutate(.pred = predict(district_lmm2.0, newdata = .)) %>% 
-  ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(y = enrolments,
-                group = qcaa_school_id),
-            colour = "grey80") +
-  geom_line(aes(group = qcaa_district)) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
-```
-
-```{r, message=FALSE}
-# Schools nested within postcodes
-spec_math_long %>% 
-  mutate(.pred = predict(postcode_lmm2.0, newdata = .)) %>% 
-  ggplot(aes(x = completion_year,
-             y = .pred)) +
-  geom_line(aes(group = school_postcode),
-            alpha = 0.5) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              colour = "orange") +
-  facet_wrap(~ unit,
-             nrow = 2)
-```
-
-## Adding predictors
-
-```{r}
-confint(district_lmm2.0,
-        method = "boot",
-        oldNames = FALSE)
-```
-
-All predictors are significant, except the for the correlation between the `c_completion_year` and `qcaa_district`
-
-```{r}
-confint(postcode_lmm2.0,
-        method = "boot",
-        oldNames = FALSE)
-```
-
-- All predictors are significant
-  - This may suggest that this model is superior to that of `district_lmm2.0`
-
-### Pseudo $R^2$
-
-$$Pseudo R^2 = \frac{\sigma^2_{\text{unconditional}} - \sigma^2_{\text{conditional}}}{\sigma^2_{\text{unconditional}}}$$
-
-- As there is no direct measure of the variance accounted for by the multilevel model, the pseudo $R^2$ provide an indication of the amount of variance accounted for by comparing the variance component in a unconditional model to the same variance component in a conditional model
-- Pseudo $R^2$ can be computed for the overall residual in the model, $\epsilon_{ij}$, or for any random parameter (*e.g.* intercept variance). 
-- Can be interpreted as an estimate of the proportional reduction in unexplained variance in the random paramenter, accounted for by the predictor variables in the model
-  - Note: When exploring how predictor variables account for the variance in specific parameters, one would simply substitute $\sigma^2$ terms for $\tau^2$'s
-  
-# Adding predictors to the model
-
-```{r}
+```{r qce-math}
+# --- Mathematics
 mathsci_all %>% 
-  filter(completion_year > 2019)
+  filter(subject == "Mathematics") %>% 
+  # All unique mathematics subjects
+  distinct(subject_name, subject_type) %>% 
+  # Include Mathematics for old QCE system
+  mutate(
+    old_subject_name = case_when(
+      subject_name == "General Mathematics" ~ "Mathematics A",
+      subject_name == "Mathematical Methods" ~ "Mathematics B",
+      subject_name == "Specialist Mathematics" ~ "Mathematics C",
+      TRUE ~ paste0("---")
+    ),
+    .before = subject_name
+  ) %>% 
+  group_by(subject_type) %>% 
+  # Arrange subject names in alphabetical order
+  arrange(subject_name) %>% 
+  ungroup() %>% 
+  select(-subject_type) %>% 
+  # Produce HTML table
+  kable(caption = "Senior Mathematics subjects in the new QCE system",
+        col.names = c("Old subject name","New subject name"),
+        booktabs = TRUE,
+        align = "c") %>% 
+  kable_styling(full_width = FALSE) %>% 
+  # Partition subject type
+  pack_rows(index = c("Applied Mathematics" = 1,
+                      "General Mathematics" = 3)) 
 ```
 
-# Steps 
-- Add predictors, compare AIC, BIC, $R^2$ to see if it's a better fit
-- Add third-level to the data structure (*e.g.* schools nested within postcodes and sector) 
-  - use `anova()` to test if adding third structure provides a better fit
+There are three main mathematics subjects in the new QCE system, which are broadly equivalent to the Mathematics A, B and C in the old QCE system (Table \@ref(tab:qce-math)). Of the general mathematics subjects, General Mathematics is the least taxing, followed by Mathematical Methods and Specialist Mathematics. Furthermore, Essential Mathematics (applied subject) is introduced in the new system, where is focuses on developing and using mathematical knowledge to investigate real-world problems such as managing money, travel and data, and decision-making using mathematical concept (@essential-math-syllabus). Each school may offer various mathematics programs --- *e.g.* offer two of the three general mathematics subjects, or only offer Essential Mathematics (applied subjects).
 
+Mathematical Methods is often a prerequisite for some university courses, implying that students completing the subject can streamline entry to specific courses in the university. Specialist Mathematics is designed to be taken in conjunction, or on completion of Mathematical methods, as it extends the key ideas studied in that subject. This path is usually recommended for students who wish to undertake further study in mathematics --- such as engineering or science related courses or have strong aptitude in mathematics. 
+
+As an alternative, there is a *safety net* as students may opt for a less challenging mathematics subject such as Essential Mathematics subject (applied subject), as it would also contribute to the student's ATAR score. This subject is usually undertaken by students who do not require mathematics for tertiary education at university of have not been able to attain a pass in Year 10 Core Mathematics. However, it should be noted that only general mathematics subjects or applied mathematics subjects can included in the ATAR, but not both. For instance, it is not possible to incorporate Mathematical Methods (general subject) and Essential Mathematics (applied subject) in a student's ATAR.
+
+### Sciences 
+
+```{r qce-science}
+# --- Sciences
+mathsci_all %>% 
+  filter(subject == "Sciences") %>% 
+  # All unique Science subjects
+  distinct(subject_name, subject_type) %>% 
+  # Include Sciences for old QCE system
+  mutate(
+    old_subject_name = case_when(
+      subject_name == "Psychology" ~ "---",
+      subject_name == "Earth & Environmental Science" ~ "Earth Science",
+      TRUE ~ subject_name
+    ),
+    .before = subject_name
+  ) %>% 
+  group_by(subject_type) %>%
+  # Arrange subject names in alphabetical order
+  arrange(subject_name, .by_group = TRUE) %>% 
+  ungroup() %>% 
+  select(-subject_type) %>% 
+  # Produce HTML table
+  kable(caption = "Senior Science subjects in the new QCE system",
+        col.names = c("Old subject name","New subject name"),
+        booktabs = TRUE,
+        align = "c") %>% 
+  kable_styling(full_width = FALSE) %>% 
+  # Partition subject type
+  pack_rows(index = c("Applied Sciences" = 3,
+                      "General Sciences" = 7)) 
+```
+
+Unlike mathematics subjects, there are little changes in the subject names. As demonstrated in Table \@ref(tab:qce-science) There are two main changes in science subjects --- 'Psychology' is introduced in the new QCE system and earth science is renamed to Earth and Environmental Science.
+
+
+# Data Cleaning
+
+To get the dataset ready for the analysis, the dataset is transformed to reproduce that of the new QCE system.
+
+## Joining dataset from old QCE system and new QCE system
+
+**Changing all subject names to match new QCE system**: To combine the datasets relating to the old and new QCE system, the subject names were first matched. As demonstrated in Tables \@ref(tab:qce-math) and \@ref(tab:qce-science), some subjects names were changed in the new QCE system. All subject names in the old system were changed to that of the new system to facilitate the relational join. For example, Mathematics A, B and C were modified to General Mathematics, Mathematical Methods and Specialist Mathematics respectively to match that of the new QCE system. 
+
+**Changing unit 1 and 2, and unit 3 and 4 enrolments to year 11 and year 12 enrolments**: Next, the new QCE system introduce an assessment program consisting of Units 1 and 2. In general, most students complete Units 1 and 2 in Year 11, and Units 3 and 4 are undertaken in year 12. Accordingly, units 1 and 2, and units 3 and 4 are renamed to year 11 enrolments and year 12 enrolments to facilitate the relational join of both datasets corresponding to the old and new QCE system. Once the school and subject information were aligned, both datasets were joined seamlessly.
+
+## Manipulating character strings to match school names
+
+```{r regexps-example}
+tibble(
+  `School Name (Old QCE system)` = c("St Catherine's Catholic College The Whitsundays (Proserpine (Renwick Road))",
+            "Lutheran Ormeau Rivers District School (Lords)",
+            "Faith Baptist Christian School (Gladstone)",
+            "Rivermount College - Yatala",
+            "Carinity Education - Southside"),
+  `School Name (New QCE system)` = c("St Catherine's Catholic College The Whitsundays (Proserpine)",
+            "Lutheran Ormeau Rivers District School (Pimpama)",
+            "Faith Baptist Christian School (Burua)",
+            "Rivermount College (Yatala)",
+            "Carinity Education - Southside Sunnybank"),
+  `Modified School Name` = c("St Catherine's Catholic College The Whitsundays",
+                 "Lutheran Ormeau Rivers District School",
+                 "Faith Baptist Christian School",
+                 "Rivermount College",
+                 "Carinity Education")) %>% 
+  kable(caption = "Example: Incompatible School names fixed by removing parantheses \"()\" and dash \"-\" ") %>% 
+  kable_styling(full_width = FALSE) %>% 
+  # Partition subject type
+  pack_rows(index = c("Fixed by removing parantheses" = 3,
+                      "Fixed by removing dashes" = 2))
+```
+
+Regular expressions were utilised to remove school names that did not match in the datasets for the old and new QCE system. An extract of what has been done is shown above (Table \@ref(tab:regexps-example)). Fortunately, schools are uniquely identified with QCAA school ID, easing this process as incompatible school names can be easily identified. In most cases, removing parentheses "()" and dashes "-" relating to suburb solves the issues. 
+
+```{r school-names-error}
+tibble(
+  `School Name (Old QCE system)` = c("Clairvaux Mackillop College",
+                                     "St Aidan's Anglican Girls' School",
+                                     "Cloncurry State School P-12",
+                                     "Aboriginal & Islander Independent Community School"),
+  `School Name (New QCE system)` = c("Clairvaux MacKillop College",
+                                     "St Aidan's Anglican Girls School",
+                                     "Cloncurry State School",
+                                     "Aboriginal and Islander Independent Community School"),
+  `Issue (Why school names does not match)` = c("Capital K in 'MacKillop'",
+                                                "Extra ' in 'Girls'",
+                                                "Extra 'P-12'",
+                                                "'&' used instead of 'and'")) %>% 
+  kable(caption = "Example: Manually fixing errors due to issues in School Nmaes") %>% 
+  kable_styling(full_width = FALSE) 
+```
+
+However, there were cases in which school names have to be recoded manually as the school names were inconsistent. Some of the examples are demonstrated in Table \@ref(tab:school-names-error).
+
+
+## Missing values in enrolments relate to schools offering subject for Year 11 or Year 12 only
+
+```{r missing-data, fig.cap = "At-a-glance plot of the missing values in the raw dataset, where the pink cells indicate a missing value. Most observations are present, except for three variables. The missing values in year 11 and 12 enrolments relates to schools which offered a subject for year 11 but not for year 12 and vice versa"}
+mathsci_all %>% 
+  # Convert zeroes back to NA (replicate the raw data)
+  mutate(year_11_enrolments = na_if(year_11_enrolments, 0), 
+         year_12_enrolments = na_if(year_12_enrolments, 0)) %>% 
+  # Display missing values
+  naniar::vis_miss(warn_large_data = FALSE,
+                   sort_miss = TRUE,
+                   ) +
+  colorspace::scale_fill_discrete_qualitative(labels = c("Missing (0.8%)", "Present (99.2%)"),
+                                              alpha = 0.9,
+                                              rev = TRUE) +
+  theme(panel.grid = element_blank())
+```
+
+```{r eval=FALSE}
+# All 0 enrolments in year 11
+no_enrolments_year_11 <- mathsci_all %>% 
+  filter(year_11_enrolments == 0) %>% 
+  nrow()
+
+# Contributed by first prep year cohort
+prep_year_2007 <- mathsci_all %>% 
+  filter(year_11_enrolments == 0 & completion_year == 2019) %>% 
+  nrow()
+
+(prep_year_2007 / no_enrolments_year_11) * 100 
+```
+
+```{r, eval=FALSE}
+# Extracting all schools with 0 enrolments in year 12
+year_12_no_enrolments <- mathsci_all %>% 
+  filter(year_12_enrolments == 0) %>% 
+  nrow()
+
+# Extract zero year 12 enrolments due to the inception of a new subject for a given school
+first_year_no_year_12 <- mathsci_all %>% 
+  group_by(qcaa_school_id, subject_name) %>% 
+  filter(completion_year == min(completion_year)) %>% 
+  filter(year_12_enrolments == 0) %>% 
+  nrow()
   
-# Others
-- Look at maps
+(first_year_no_year_12 / year_12_no_enrolments) * 100
+```
+
+Figure \@ref(fig:missing-data) illustrates that most of the observations were present, except for there variables relating to enrolments (`year_11_enrolments` and `year_12_enrolments`) and the Department of Education Centre Code (`doe_centre_code`). 
+
+**Zero enrolments in Year 11 and Year 12**
+
+First, 67.13% of the missing values in year 11 enrolments relate to the 2019 graduating cohort that were part of the Queensland's first Prep Year cohort in 2007. Next, 71.48% of the zero enrolments in year 12 corresponds to the first year in which a given school introduces a subject. As year 12 enrolments requires students to complete year 11 syllabus, most students may not partake in the subject when the schools first introduce the subject. In further scrutiny, the other schools that have zero enrolments are usually smaller schools (in rural areas) or schools may only offer a subject for year 11 students but not year 12 students in certain years and vice versa. For example, Mossman State High School offered Specialist Mathematics subject in some years --- Offered the subject to Year 11 students of 2020 and Year 12 students of 2021, but not for Year 11 students of 2021 and Year 12 students of 2022 (@mossman-high). 
+
+**Missing Department of Education Centre Code**
+
+Schools that were missing the Department of Education Centre Code refers to schools that existed before 2002. This alludes that these schools may not have been assigned any Department of Education Centre Code. Fortunately, the dataset provides `qcaa_school_id` which have no missing values and can uniquely identify each school, and thus, thee missing values in `doe_centre_code` may be disregarded.
+
+## Revise school postcodes
+
+Errors in school postcodes usually arise form school postcodes codes being reassigned overtime, due to typographical errors, mainly for schools with two or more different locations. These issues were fixed manually by cross checking the correct addresses for the school provided by Google Maps. 
+
+
+# Exploratory Data Analaysis
 
 
 
+
+
+
+# Acknowledgement
+
+The programming language used to analyse trends in enrolments for senior secondary (Year 11 and Year 12) mathematics and science subjects in Queensland is R (4.0.2) [@R],
+and the platform used for running R language is RStudio (1.4.1717) [@RStudio].
+
+The following packages have been included in our Rmd file.
+
+-   package tidyverse (1.3.0) [@tidyverse],
+-   package broom (0.7.9) [@broom]
+-   package patchwork (1.0.1) [@patchwork]
+-   package naniar (0.6.0) [@naniar]
+
+
+# References
 
 
 
