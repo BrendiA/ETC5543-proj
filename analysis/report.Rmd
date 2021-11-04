@@ -59,8 +59,9 @@ The aforementioned measures taken above gives readers an intuition of the datase
 
 The following research questions guided the report:
 
-(1) What are the underlying trends in senior secondary mathematics and science subjects?
+(1) What are the underlying trends in senior secondary mathematics and science subjects? 
 (2) Are there differences in enrolments in the new QCE system (after 2020) as compared to the old QCE system (before 2020)?
+
 
 # Data and Motivation
 
@@ -120,7 +121,7 @@ Each row (observation) corresponds to a school's enrolment information for a sub
 
 ## The new QCE system
 
-Senior schooling is a pivotal moment for Queensland students as most students transition into tertiary education. The new QCE system was introduced from Year 11 students in 2019, where Overall Position (OP) scores will be replaced by the new Australian Tertiary Admission Rank (ATAR) system in assisting universities in selecting applications in their causes. For this reason, the Queensland Core Skills (QCS) test for year 12 students, which has been in place since 1992 is abolished (after Year 12 in 2019) for the new ATAR system. The ATAR is a inter subject percentile-rank (as opposed to a mark), where students are ranked relative to their age group; To be specific, ATAR is expressed on a 2,000 point scale from 99.95 down to 0.00 in steps of 0.05. 
+Senior schooling is a pivotal moment for Queensland students as most students transition into tertiary education. The new QCE system was introduced from Year 11 students in 2019, where Overall Position (OP) scores will be replaced by the new Australian Tertiary Admission Rank (ATAR) system in assisting universities in selecting applications in their courses. For this reason, the Queensland Core Skills (QCS) test for year 12 students, which has been in place since 1992 is abolished (after Year 12 in 2019) for the new ATAR system. The ATAR is a inter subject percentile-rank (as opposed to a mark), where students are ranked relative to their age group; To be specific, ATAR is expressed on a 2,000 point scale from 99.95 down to 0.00 in steps of 0.05. 
 
 Queensland ATARs are based on a student's:
 
@@ -282,9 +283,8 @@ mathsci_all %>%
   naniar::vis_miss(warn_large_data = FALSE,
                    sort_miss = TRUE,
                    ) +
-  colorspace::scale_fill_discrete_qualitative(labels = c("Missing (0.8%)", "Present (99.2%)"),
-                                              alpha = 0.9,
-                                              rev = TRUE) +
+  scale_fill_manual(labels = c("Present (99.2%)", "Missing (0.8%)"),
+                    values = c("grey80", "black")) +
   theme(panel.grid = element_blank())
 ```
 
@@ -335,9 +335,173 @@ Errors in school postcodes usually arise form school postcodes codes being reass
 
 # Exploratory Data Analaysis
 
+## Total Enrolments for each Subject over the years
+
+```{r}
+# Compute total enrolments for each year, by subject
+total_enrolments <- mathsci_all %>% 
+  group_by(completion_year, subject_name) %>% 
+  summarise(total_year12_enrolments = sum(year_12_enrolments),
+            .groups = "drop") 
+
+total_enrolments %>% 
+  ggplot() +
+  # Enrolments for all years (old & new system)
+  geom_col(aes(x = completion_year,
+               y = total_year12_enrolments),
+           fill = "grey80") +
+  # Enrolments for from 2019 (new system)
+  geom_col(aes(x = completion_year,
+               y = total_year12_enrolments),
+           fill = "grey30",
+           data = filter(total_enrolments, completion_year > 2019)) + 
+  facet_wrap(~ subject_name,
+             scales = "free_y") +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(panel.grid.minor = element_blank())
+```
 
 
+## Time plot: Enrolments across the years
 
+```{r}
+# Convert to long format for plotting
+mathsci_all_long <- mathsci_all %>% 
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments")
+```
+
+```{r time-plot-all}
+mathsci_all_long %>% 
+  # filter(subject_name == "Earth & Environmental Science") %>% 
+  group_by(qcaa_school_id, subject_name, unit) %>%
+  # Fill missing years with NA to skip when plotting line plot
+  tidyr::complete(completion_year = min(completion_year):max(completion_year),
+           fill = list(value = NA)) %>% 
+  filter(unit == "year_12_enrolments") %>% 
+  ggplot() +
+  geom_line(aes(x = completion_year,
+                y = enrolments,
+                group = qcaa_school_id),
+            colour = "grey40",
+            alpha = 0.4) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  facet_wrap(~ subject_name,
+             scales = "free_y") +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Figure \@ref(fig:time-plot-all) displays the year 12 enrolments in for each subject. Each line represents year 12 enrolments for a single school. For most subjects, some relatively large schools can be identified as their enrolments numbers were significantly higher than most other schools. The year 12 enrolments for these large schools were especially prominent in the later years, where the new QCE system was introduced.
+
+Some Subjects that were introduced in the 1990s such as Biology, Chemistry, Physics, General Mathematics and Mathematical Methods showed rather stable enrolment numbers as enrolment trend across schools appears to be proportional to one another. In other words, when there is a general increase (decrease) in enrolments, most schools will show an increase (decrease), as seen by the large cluster of observations. In contrary, Agricultural Earth and Environmental Science, although introduced in the 1990s, did not exhibit such patterns as the enrolment numbers were rather erratic. However, it can be observed that there were significantly less enrolments for these subjects, implying that not many schools offer this subject or the subject is not popular among students.
+
+Subjects were introduced at different time frames. Aquatic practices and Marine Science were only introduced in 2015 and 2014 respectively. There was a halt in Agricultural Practices subject in year 2000, before being re-introduced again in 2015. Furthermore, the inception of the new QCE system was two new subjects, Psychology and Essential Mathematics.
+
+
+## Linear relationship between year 11 and year 12 enrolments
+
+```{r year11-vs-year12, fig.cap = "Year 12 enrolments agianst year 11 enrolments, with a 45° line to indicating a perfect linear relationship"}
+mathsci_all %>%
+  ggplot() + 
+  # Scatter plot
+  geom_point(aes(x = year_11_enrolments,
+                 y = year_12_enrolments,
+                 colour = subject),
+             alpha = 0.3,
+             colour = "grey30") +
+  # Plot 45° line 
+  geom_abline(slope = 1,
+              intercept = 0,
+              size = 1,
+              colour = "red",
+              alpha = 0.5) +
+  facet_wrap(subject_name ~ subject,
+             scales = "free") +
+  labs(title = "Year 12 enrolments against year 11 enrolments,",
+       x = "Year 11 enrolments",
+       y = "Year 12 enrolments")
+```
+
+A scatterplot of year 11 and year 12 are plotted in Figure \@ref(fig:year11-vs-year12), with a 45° line to facilitate the interpretation of the scatter plot, where it indicates a one unit increase in year 11 enrolments is matched with a one-unit increase in year 12 enrolments (*i.e.*perfect linear relationship). As already mentioned, the 0 enrolments in year 11 (as seen on the figure) is attributed to the Queensland's first Prep Year cohort in 2007 while the 0 enrolments in year 12 relates to the year where a school introduces the subject for the very first time (thus, there will be no year 12 students as most students have yet to complete year 11). 
+
+Most subject demonstrates a linear relationship (lie on or **close to the red line**) between year 11 and year 12 students. Intuitively, this is reasonable as a student is likely to continue to complete the year 12 syllabus (unit 3 and 4) after completing his year 11 syllabus (unit 1 and 2). 
+
+Observations **below the red line** may suggest that students have dropped the subject or have taken a gap year. Students are usually recommended to enrol in 6 subjects for senior school (**reference**). A student usually starts with 6 subjects in year 11, before dropping down to 5 subjects in Year 12. However, completing 6 subjects gives the student a "safety net", in the instance where the student did not perform well for a particular subject (noting that ATAR takes the best of 5 subjects). Taking this into account, students appears to be dropping Psychology subject, as Figure \@ref(fig:year11-vs-year12) demonstrates that most year 12 enrolments were below the red 45° line. 
+
+In contrary, observations that lie **above the red line** may indicate that these students may have completed the year 11 (unit 1 and 2) in year 10, and re-enrolled in year 12. Furthermore, students may opt to study at a school of distance education to complete their year 11 (unit 1 and 2) syllabus because of various reasons such as the school not offering year 11 syllabus for a given year.
+
+Some science subjects such as Earth and Environmental Science, Marine science, and Science in Practice displays **heteroscedasticity**, where the larger the cohort size, the higher the rate of students dropping the subject or having more enrolments in year 12. Interestingly, these science subjects have a relatively small number of enrolments. This pattern does not seem to manifest in mathematics subjects.
+
+
+## Larger schools are associated with lower enrolments in year 12
+
+```{r}
+# --- Create data frame showing increase or decrease in year 12 enrolments 
+
+up_or_down <- mathsci_all %>% 
+  # Create new variable examining if year 11 enrolments is more than year 12 enrolments
+  mutate(slope = if_else(
+    year_11_enrolments < year_12_enrolments,
+    true = "Upward",
+    false = "Downward"),
+    slope = as.factor(slope)) %>% 
+  # Convert to long format for plotting
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments") 
+
+# Remove outliers
+up_or_down <- mathsci_all_long %>% 
+  group_by(qcaa_school_id) %>% 
+  # Zero year 12 students due to introduction of subject
+  filter(completion_year != min(completion_year)) %>% 
+  ungroup() %>% 
+  # Zero year 11 students due to first prep year cohort
+  filter(completion_year != 2019) %>% 
+  mutate(schoolid_year = paste0(qcaa_school_id, ":", completion_year)) %>% 
+  mutate(subject_and_type = paste0(subject, " (", subject_type, ")"))
+```
+
+```{r up-or-down, fig.cap = "Parallel Coordinate plot comparing year 11 and year 12 enrolments for a given cohort in a school. The blue (grey) lines represents an increase (decrease) in year 12 enrolments. In general, larger schools appears to have smaller year 12 enrolments, as indicated by numerous grey lines when enrolment numbers are higher"}
+ggplot(data = up_or_down,
+       aes(x = unit,
+           y = enrolments,
+           group = schoolid_year)) +
+  geom_line(data = filter(up_or_down, slope == "Downward"),
+            colour = "grey50",
+            alpha = 0.5) +
+  geom_line(data = filter(up_or_down, slope == "Upward"),
+            colour = "#72bdd4",
+            alpha = 0.6) +
+  facet_wrap(subject_name ~ subject_and_type,
+             scales = "free_y") +
+  labs(title = "Parallel coordinates plot highligting the difference betewen year 11 and year 12 enrolments",
+       x = "Unit",
+       y = "Enrolments")
+```
+
+The parallel coordinates plot (Figure \@ref(fig:up-or-down)) allows comparison of the difference between year 11 and year 12 enrolments. The grey line indicates that year 12 enrolments is smaller than year 11 enrolments for a given cohort in a school and conversely, the blue lines represents an increase in enrolments from year 11 to year 12.
+
+In general, larger schools (with relatively high enrolment numbers for a given subject) appears to have smaller year 12 enrolments as compared to year 11 enrolments. This pattern is especially noticeable in Psychology, where most schools with enrolments higher than 150 see a decrease in enrolment numbers from year 11 to year 12. This was not the case for some subjects such as General Mathematics and Chemistry and Biology.
+
+## Distribution of enrolments for each sector
+
+```{r boxplot-dist}
+# Distribution of enrolments for each subject by sector
+mathsci_all %>%
+  ggplot() +
+  geom_boxplot(aes(x = sector,
+                   y = year_12_enrolments,
+                   group = sector),
+               outlier.alpha = 0.6) +
+  facet_wrap(~ subject_name,
+             scales = "free")
+```
+
+In most subjects, the distribution in enrolments across all sectors were rather similar (Figure \@ref(fig:boxplot-dist). Subjects that were introduced early such as Biology, Chemistry, Specialist Mathematics, Physics showed stable enrolment numbers, with little variation across the different sectors. As highlighted by the outliers in all subjects, there were schools that has significantly more enrolments, these observations may refer to the larger schools in Queensland. These outliers are considerably prominent, especially in Government schools.
 
 
 # Acknowledgement
@@ -349,9 +513,12 @@ The following packages have been included in our Rmd file.
 
 -   package tidyverse (1.3.0) [@tidyverse],
 -   package broom (0.7.9) [@broom]
--   package patchwork (1.0.1) [@patchwork]
+-   package broom.mixed (0.2.7) [@broom-mixed]
+-   package colorspace [@colorspace]
+-   pacakge kableExtra (1.3.4) [@kableExtra]
+-   package lme4 (0.6.7) [@lme4]
+-   package patchwork (1.1.1) [@patchwork]
 -   package naniar (0.6.0) [@naniar]
-
 
 # References
 
