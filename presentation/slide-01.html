@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="" xml:lang="">
+  <head>
+    <title>Predicting Mathematics &amp; Science  Enrolments in Queensland Senior Schools</title>
+    <meta charset="utf-8" />
+    <meta name="author" content="Brendi Ang" />
+    <meta name="date" content="2021-11-11" />
+    <script src="libs/header-attrs/header-attrs.js"></script>
+    <link href="libs/panelset/panelset.css" rel="stylesheet" />
+    <script src="libs/panelset/panelset.js"></script>
+    <script src="libs/kePrint/kePrint.js"></script>
+    <link href="libs/lightable/lightable.css" rel="stylesheet" />
+    <link rel="stylesheet" href="footer_plus.css" type="text/css" />
+  </head>
+  <body>
+    <textarea id="source">
+
+
+class: title-slide
+background-image: url(images/monash-logo.jpeg), url(images/building.jpeg)
+background-position: 90% 90%, 100% 0%
+background-size: 100px, 100% 80%
+background-color: #FFFFFF
+
+
+
+
+
+
+
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+
+## Predicting Mathematics &amp; Science &lt;/br&gt; Enrolments in Queensland Senior Schools
+
+### ETC5543 Project
+
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+&lt;br&gt;
+
+#### .left[By: 🕵🏻 Brendi Ang]
+
+#### .left[&lt;svg viewBox="0 0 496 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"&gt;&lt;/path&gt;&lt;/svg&gt; &lt;a href="https://github.com/BrendiA"&gt; @BrendiA&lt;/a&gt;]
+
+---
+
+name: content-page
+class: header_background
+#.left[Outline]
+
+&lt;br&gt; 
+&lt;br&gt; 
+&lt;br&gt; 
+&lt;br&gt;
+&lt;br&gt; 
+&lt;br&gt; 
+
+.large[1️⃣ [Background](#content-page-1)]
+
+.large[2️⃣ [The Dataset](#content-page-2)]
+
+.large[3️⃣ [Data Cleaning](#content-page-3)]
+
+.large[4️⃣ [Exploratory Data Analysis](#content-page-4)]
+
+.large[5️⃣ [Predicting Enrolments](#content-page-5)]
+
+---
+
+## Background
+
+- All Australian states &amp; territories uses a common measure .bold[.fontinverse[(ATAR)]] to rank Year 12 students.
+- In 2020, **Queensland** decided to adopt ATAR.
+- Up till 2019, Queensland ranked Year 12 students using Overall Position (OP).
+
+???
+
+**Background**
+- In most parts of Australia, ATAR is used to assists universities in selecting applicants.
+
+**Queensland**
+- Queensland was the latest state to transition into ATAR system, in 2020
+
+--
+
+### Implications
+
+- .bold[OP's] State-wide test (QCS test) for Year 12 students abolished.
+- .bold[ATAR] assessments consists of:
+  - .fontinverse[.bold[Year 11 syllabus]] (Units 1 &amp; 2): consists of formative assessments to prepare for units 3 &amp; 4 (**do not impact ATAR**).
+  - .fontinverse[.bold[Year 12 syllabus]] (Units 3 &amp; 4): consists of four core assessments.
+      - Three internal assessments
+      - One external assessment assessed by QCAA (Queensland Curriculum and Assessment Authority).
+      
+???
+
+**Implications**
+- This means that the old state-wide exams are replaced with ATAR assessments
+
+- Year 11 syllabus consists of assessments to prepare students for Year 12, these units do not count towards ATAR 
+
+- Year 12 syllabus 
+  - consists of 3 internal assessments, which are evaluated by the individual schools
+  - and 1 external assessment evaluated by the Queensland government
+
+---
+
+## ATAR Score
+&lt;svg viewBox="0 0 512 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M428.8 137.6h-86.177a115.52 115.52 0 0 0 2.176-22.4c0-47.914-35.072-83.2-92-83.2-45.314 0-57.002 48.537-75.707 78.784-7.735 12.413-16.994 23.317-25.851 33.253l-.131.146-.129.148C135.662 161.807 127.764 168 120.8 168h-2.679c-5.747-4.952-13.536-8-22.12-8H32c-17.673 0-32 12.894-32 28.8v230.4C0 435.106 14.327 448 32 448h64c8.584 0 16.373-3.048 22.12-8h2.679c28.688 0 67.137 40 127.2 40h21.299c62.542 0 98.8-38.658 99.94-91.145 12.482-17.813 18.491-40.785 15.985-62.791A93.148 93.148 0 0 0 393.152 304H428.8c45.435 0 83.2-37.584 83.2-83.2 0-45.099-38.101-83.2-83.2-83.2zm0 118.4h-91.026c12.837 14.669 14.415 42.825-4.95 61.05 11.227 19.646 1.687 45.624-12.925 53.625 6.524 39.128-10.076 61.325-50.6 61.325H248c-45.491 0-77.21-35.913-120-39.676V215.571c25.239-2.964 42.966-21.222 59.075-39.596 11.275-12.65 21.725-25.3 30.799-39.875C232.355 112.712 244.006 80 252.8 80c23.375 0 44 8.8 44 35.2 0 35.2-26.4 53.075-26.4 70.4h158.4c18.425 0 35.2 16.5 35.2 35.2 0 18.975-16.225 35.2-35.2 35.2zM88 384c0 13.255-10.745 24-24 24s-24-10.745-24-24 10.745-24 24-24 24 10.745 24 24z"&gt;&lt;/path&gt;&lt;/svg&gt; Inter subject percentile-rank where students are ranked relative to their age group.
+
+--
+
+&lt;img src="images/atar.png" width="1111" height="300%" style="display: block; margin: auto;" /&gt;
+
+--
+
+- ATAR is expressed on a .bold[.fontinverse[2,000 point scale]] from 99.95 down to 0.00 in steps of 0.05.
+
+- Typically used to .bold[.fontinverse[assist universities]] in selecting applicants for their courses 🤓.
+
+???
+
+- In general, 5 best subjects are counted to your ATAR
+  - Five general subjects **or**
+  - 4 General subjects &amp; 1 applied subject
+  
+- 2,000 point scale, going from 99.95 to 0 in steps of 0.05.
+  - This means that if a student have an ATAR score of 80%, the student is placed in the top 20% of students in Queensland.
+
+---
+
+class: center, middle, inverse
+.megabold[⛰ Objective 🌋]
+
+--
+
+&lt;svg viewBox="0 0 192 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M0 384.662V127.338c0-17.818 21.543-26.741 34.142-14.142l128.662 128.662c7.81 7.81 7.81 20.474 0 28.284L34.142 398.804C21.543 411.404 0 402.48 0 384.662z"&gt;&lt;/path&gt;&lt;/svg&gt; Predict Year 11 and Year 12 enrolments in .bold[Mathematics] and .bold[Science] subjects.
+
+???
+
+The main purpose of my job was to predict the enrolments for the different schools in Queensland
+
+---
+
+class: middle
+
+### 📝 The following research questions guided the analysis:
+
+--
+
+(1) What are the underlying trends in enrolments for senior secondary mathematics and science subjects?
+
+--
+
+(2) Are there differences in enrolments in the new QCE system (after 2020) as compared to the old QCE system (before 2020)?
+
+???
+
+- New system uses ATAR
+- old system uses Overall position
+---
+
+class: center, middle, inverse
+.megabold[The dataset]
+
+???
+- Moving on to the dataset
+
+---
+
+class: center
+
+#.fontinverse[🔩 Data Extraction 🔨]
+
+&lt;svg viewBox="0 0 512 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M216 0h80c13.3 0 24 10.7 24 24v168h87.7c17.8 0 26.7 21.5 14.1 34.1L269.7 378.3c-7.5 7.5-19.8 7.5-27.3 0L90.1 226.1c-12.6-12.6-3.7-34.1 14.1-34.1H192V24c0-13.3 10.7-24 24-24zm296 376v112c0 13.3-10.7 24-24 24H24c-13.3 0-24-10.7-24-24V376c0-13.3 10.7-24 24-24h146.7l49 49c20.1 20.1 52.5 20.1 72.6 0l49-49H488c13.3 0 24 10.7 24 24zm-124 88c0-11-9-20-20-20s-20 9-20 20 9 20 20 20 20-9 20-20zm64 0c0-11-9-20-20-20s-20 9-20 20 9 20 20 20 20-9 20-20z"&gt;&lt;/path&gt;&lt;/svg&gt; Enrolment data can be found in &lt;a href="https://www.qcaa.qld.edu.au/news-data/statistics"&gt; .link-red[QCAA's Website] &lt;/a&gt;
+
+&lt;img src="images/qcaa.png" width="200%" height="300%" style="display: block; margin: auto;" /&gt;
+
+???
+
+- The dataset can be extracted directly from the QCAA website 
+
+---
+
+## Data Description 📝
+
+&lt;div style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:500px; overflow-x: scroll; width:750px; "&gt;&lt;table class="table table-striped" style="font-size: 15px; width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; completion_year &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; qcaa_subject_id &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; subject_name &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; subject_type &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; doe_centre_code &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; qcaa_school_id &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; school_name &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; year_11_enrolments &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; year_12_enrolments &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; sector &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; school_postcode &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; qcaa_district &lt;/th&gt;
+   &lt;th style="text-align:center;position: sticky; top:0; background-color: #FFFFFF;"&gt; subject &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 1995 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 47 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 0 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 1996 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 51 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 51 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 1997 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 52 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 50 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 1998 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 80 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 52 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 1999 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 47 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 81 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 2000 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 41 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 48 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 2001 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 22 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 39 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 2002 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 29 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 29 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 2003 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 32 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;"&gt; 2004 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 38 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 5590 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 17 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; John Paul College &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 27 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 48 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Independent &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; 4127 &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Brisbane South &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;&lt;/div&gt;
+
+- Each row (observation) corresponds to a school's enrolment information for a subject in a given cohort.
+
+???
+
+- For example, the table shows the enrolment for Specialist Mathematics subject in John Paul College
+  - Subject introduced in 1995
+  - **School specific variables**: school postcode and district, which sector it belongs to
+
+---
+
+## Data Description
+&lt;svg viewBox="0 0 640 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M384 320H256c-17.67 0-32 14.33-32 32v128c0 17.67 14.33 32 32 32h128c17.67 0 32-14.33 32-32V352c0-17.67-14.33-32-32-32zM192 32c0-17.67-14.33-32-32-32H32C14.33 0 0 14.33 0 32v128c0 17.67 14.33 32 32 32h95.72l73.16 128.04C211.98 300.98 232.4 288 256 288h.28L192 175.51V128h224V64H192V32zM608 0H480c-17.67 0-32 14.33-32 32v128c0 17.67 14.33 32 32 32h128c17.67 0 32-14.33 32-32V32c0-17.67-14.33-32-32-32z"&gt;&lt;/path&gt;&lt;/svg&gt; Variables can be broken down into .bold[three components].
+
+&lt;div style="border: 1px solid #ddd; padding: 0px; overflow-y: scroll; height:450px; overflow-x: scroll; width:750px; "&gt;&lt;table class="table table-striped" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+&lt;caption&gt;Description of the dataset used for the analysis&lt;/caption&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;"&gt; Variable &lt;/th&gt;
+   &lt;th style="text-align:left;position: sticky; top:0; background-color: #FFFFFF;"&gt; Description &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr grouplength="3"&gt;&lt;td colspan="2" style="border-bottom: 1px solid;"&gt;&lt;strong&gt;Enrolment information&lt;/strong&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; completion_year &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Graduation cohort's year of completion &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; year_11_enrolments &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Number of Year 11 students enrolled in the subject &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; year_12_enrolments &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Number of Year 12 students enrolled in the subject &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr grouplength="4"&gt;&lt;td colspan="2" style="border-bottom: 1px solid;"&gt;&lt;strong&gt;Subject information&lt;/strong&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; qcaa_subject_id &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; QCAA subject ID &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; subject_name &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Subject name &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; subject &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Mathematics or Science subject &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; subject_type &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Type of subject (General, applied or short courses) &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr grouplength="6"&gt;&lt;td colspan="2" style="border-bottom: 1px solid;"&gt;&lt;strong&gt;School information&lt;/strong&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; qcaa_school_id &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; QCAA school ID &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; school_name &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; School Name &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; doe_centre_code &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; Department of Education Centre Code &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; qcaa_district &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; School district &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; school_postcode &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; School postcode &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;padding-left: 2em;" indentlevel="1"&gt; sector &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; School sector (Government, Independent, Catholic) &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;&lt;/div&gt;
+
+???
+
+Dataset can be broken down in 3 components:  
+
+(1) Enrolments info  
+
+(2) Subject info  
+
+(3) School info
+
+
+---
+
+## Mathematics and Science  Subjects
+
+.panelset[
+.panel[.panel-name[Math]
+
+.center[
+
+####➗ Mathematics ➖
+&lt;table class="table" style="font-size: 15px; width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+&lt;caption style="font-size: initial !important;"&gt;Senior Mathematics subjects in the new QCE system&lt;/caption&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:center;"&gt; Old subject name &lt;/th&gt;
+   &lt;th style="text-align:center;"&gt; New subject name &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr grouplength="1"&gt;&lt;td colspan="2" style="border-bottom: 1px solid;"&gt;&lt;em&gt;&lt;strong&gt;Applied Mathematics&lt;/strong&gt;&lt;/em&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; --- &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Essential Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr grouplength="3"&gt;&lt;td colspan="2" style="border-bottom: 1px solid;"&gt;&lt;em&gt;&lt;strong&gt;General Mathematics&lt;/strong&gt;&lt;/em&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Mathematics A &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; General Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Mathematics B &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Mathematical Methods &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Mathematics C &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Specialist Mathematics &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+]
+
+.panel[.panel-name[Science]
+.center[
+#### 🧪Science 🔬
+&lt;table class="table" style="font-size: 15px; width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+&lt;caption style="font-size: initial !important;"&gt;Senior Science subjects in the new QCE system&lt;/caption&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:center;"&gt; Old subject name &lt;/th&gt;
+   &lt;th style="text-align:center;"&gt; New subject name &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr grouplength="3"&gt;&lt;td colspan="2" style="border-bottom: 1px solid;"&gt;&lt;em&gt;&lt;strong&gt;Applied Sciences&lt;/strong&gt;&lt;/em&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Agricultural Practices &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Agricultural Practices &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Aquatic Practices &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Aquatic Practices &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Science in Practice &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Science in Practice &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr grouplength="7"&gt;&lt;td colspan="2" style="border-bottom: 1px solid;"&gt;&lt;em&gt;&lt;strong&gt;General Sciences&lt;/strong&gt;&lt;/em&gt;&lt;/td&gt;&lt;/tr&gt;
+&lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Agricultural Science &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Agricultural Science &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Biology &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Biology &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Chemistry &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Chemistry &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Earth Science &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Earth &amp;amp; Environmental Science &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Marine Science &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Marine Science &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; Physics &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Physics &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:center;padding-left: 2em;" indentlevel="1"&gt; --- &lt;/td&gt;
+   &lt;td style="text-align:center;"&gt; Psychology &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+]
+]
+
+???
+
+Some new subjects were introduced in the new system
+
+**For maths**
+- Essential mathematics is introduced
+
+**For science**
+- new subject: Psychology
+- Change subject name: Earth &amp; Environmental science
+
+
+---
+
+class: center, middle, inverse
+.megabold[🧹 Data Cleaning 🧽 ]
+
+---
+
+class: middle
+
+## The Main Steps
+
+- Examining observations with .fontinverse[.bold[missing values in enrolments]] and imputing missing values with zero.
+
+--
+
+- .fontinverse[.bold[Revise school postcodes]] that were reassigned overtime _(or due to typographical errors)_.
+
+--
+
+- Using regular expressions to .fontinverse[.bold[match school names]] that did not match. 
+  - _e.g._ Schools changed their names over time.
+
+--
+
+- .fontinverse[.bold[Matching subject names]] from the old system and the new system.
+
+???
+
+
+- Most of the data cleaning involves matching names
+  - Some schools may change their postcodes or names overtime
+
+---
+
+## Missing Values
+
+.panelset[
+.panel[.panel-name[Plot]
+&lt;img src="slide-01_files/figure-html/unnamed-chunk-6-1.png" width="864" /&gt;
+]
+.panel[.panel-name[Findings]
+.pull-left[
+
+**Zero enrolments in Year 11 units**
+
+- 67% of missing values due to 2019 graduating cohort that were part of the Queensland .fontinverse[.bold[first Prep year cohort.]]
+
+**Zero enrolments in Year 12 units**
+- 71% of zero enrolments in year 12 due to the first year in which a school .fontinverse[.bold[introduces a subject.]]
+]
+.pull-right[
+
+**No Department of Education Centre Code (DOE)**
+- Refers to schools that .fontinverse[.bold[existed before 2002]] and not assigned any DOE code.
+]
+]
+]
+
+???
+
+**Zero enrolments in year 11**
+- First prep year cohort
+
+**Zero enrolments in year 12**
+- Year 12 units requires completion of year 11 syllabus, making most students illegible for year 12 units.
+
+---
+
+class: center, middle, inverse
+.megabold[🔦Exploratory Data Analysis🔎]
+
+---
+
+#### A surge in enrolments in the new .link-red[QCE] system &lt;svg viewBox="0 0 512 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M496 384H64V80c0-8.84-7.16-16-16-16H16C7.16 64 0 71.16 0 80v336c0 17.67 14.33 32 32 32h464c8.84 0 16-7.16 16-16v-32c0-8.84-7.16-16-16-16zM464 96H345.94c-21.38 0-32.09 25.85-16.97 40.97l32.4 32.4L288 242.75l-73.37-73.37c-12.5-12.5-32.76-12.5-45.25 0l-68.69 68.69c-6.25 6.25-6.25 16.38 0 22.63l22.62 22.62c6.25 6.25 16.38 6.25 22.63 0L192 237.25l73.37 73.37c12.5 12.5 32.76 12.5 45.25 0l96-96 32.4 32.4c15.12 15.12 40.97 4.41 40.97-16.97V112c.01-8.84-7.15-16-15.99-16z"&gt;&lt;/path&gt;&lt;/svg&gt;
+
+--
+
+.panelset[
+.panel[.panel-name[Plot]
+
+&lt;img src="slide-01_files/figure-html/totalenrol-1.png" width="864" /&gt;
+
+]
+.panel[.panel-name[Findings]
+
+**Full cohort from 2020 🎓**
+- The significant increase in enrolments from 2020 onwards was due to the .bold[2007 prep year cohort] the left the schooling system at the end of 2019.
+  - From 2020, every year will be a full cohort, implying an additional group of students and higher expected enrolments in the new system.
+  
+**Subjects were introduced at different time frames**
+- Marine science and Aquatic practices introduced in 2014 and 2015 respectively.
+- Halt in Agricultural Science from 2000, before re-introduced again in 2015 👨🏻‍🌾.
+]
+]
+
+???
+
+**Plot description**
+- This plot shows the total enrolments across the years
+- The **black bars** are the enrolment numbers for the new system
+
+**Full cohort in 2020**
+- Huge increase in enrolments from 2020 was due to the .bold[2007 prep year cohort] that left the schooling system at the end of 2019
+  - This means that from 2020, every year will be a full cohort
+
+**Subjects were introduced at different time frames**
+- Halt in Agricultural science in 2000, before being re-introduced again in 2015
+- Some subjects were only introduced in the later years
+
+
+---
+
+#### Enrolments for each school with an overall fit using the mean enrolments &lt;svg viewBox="0 0 512 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M160 288h-56c-4.42 0-8-3.58-8-8v-16c0-4.42 3.58-8 8-8h56v-64h-56c-4.42 0-8-3.58-8-8v-16c0-4.42 3.58-8 8-8h56V96h-56c-4.42 0-8-3.58-8-8V72c0-4.42 3.58-8 8-8h56V32c0-17.67-14.33-32-32-32H32C14.33 0 0 14.33 0 32v448c0 2.77.91 5.24 1.57 7.8L160 329.38V288zm320 64h-32v56c0 4.42-3.58 8-8 8h-16c-4.42 0-8-3.58-8-8v-56h-64v56c0 4.42-3.58 8-8 8h-16c-4.42 0-8-3.58-8-8v-56h-64v56c0 4.42-3.58 8-8 8h-16c-4.42 0-8-3.58-8-8v-56h-41.37L24.2 510.43c2.56.66 5.04 1.57 7.8 1.57h448c17.67 0 32-14.33 32-32v-96c0-17.67-14.33-32-32-32z"&gt;&lt;/path&gt;&lt;/svg&gt;
+--
+
+.panelset[
+.panel[.panel-name[Plot]
+
+
+
+&lt;img src="slide-01_files/figure-html/timeplotenrolments-1.png" width="864" /&gt;
+
+]
+.panel[.panel-name[Findings]
+
+**Some subjects showed stable enrolment numbers 📊**
+- *e.g.* Biology, Chemistry, Physics, General Mathematics and Mathematical Methods.
+
+**Enrolment patterns across school appears to be proportional to one another**
+- When there is a general increase (decrease) in enrolments, most schools will show an increase (decrease) in enrolments.
+  - Most of the variations are due to the different school sizes.
+  
+**Some schools showed erratic enrolment patterns**
+- The erratic patterns are usually associated with subjects with generally small enrolment numbers.
+  - *e.g.* Agricultural Science and Earth and Environmental science 🌎.
+
+]
+]
+
+???
+
+- The plot shows the trend in enrolments across all schools, with the yellow line being the average 
+
+- Stable enrolment in Biology, Chemistry, irregular patterns in Earth and environmental science
+
+
+- On overall, school enrolments appears to be proportional to one another; Meaning that when there is an increase in enrolments in one school, most schools will also show an increase in enrolments
+
+- This implies that the variation in enrolments can be explained by the difference in school sizes
+
+
+---
+
+#### It is common for Year 11 students to continue pursuing Year 12 units &lt;svg viewBox="0 0 640 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M208 352c-2.39 0-4.78.35-7.06 1.09C187.98 357.3 174.35 360 160 360c-14.35 0-27.98-2.7-40.95-6.91-2.28-.74-4.66-1.09-7.05-1.09C49.94 352-.33 402.48 0 464.62.14 490.88 21.73 512 48 512h224c26.27 0 47.86-21.12 48-47.38.33-62.14-49.94-112.62-112-112.62zm-48-32c53.02 0 96-42.98 96-96s-42.98-96-96-96-96 42.98-96 96 42.98 96 96 96zM592 0H208c-26.47 0-48 22.25-48 49.59V96c23.42 0 45.1 6.78 64 17.8V64h352v288h-64v-64H384v64h-76.24c19.1 16.69 33.12 38.73 39.69 64H592c26.47 0 48-22.25 48-49.59V49.59C640 22.25 618.47 0 592 0z"&gt;&lt;/path&gt;&lt;/svg&gt;
+
+--
+
+.panelset[
+.panel[.panel-name[Plot]
+
+&lt;img src="slide-01_files/figure-html/pursueyear12-1.png" width="864" /&gt;
+
+]
+.panel[.panel-name[Findings]
+
+**Red line represents a perfect linear relationship 📈**
+- *i.e.* a one unit increase in Year 11 with a one-unit increase in Year 12 enrolments. 
+- Most subjects lie within this red line, suggesting a strong linear relationship.
+  - Intuitively, this is reasonable as a student is likely to complete Year 12 syllabus after completing Year 11.
+
+**Observations lying below the red line**
+- Generally represents student who dropped the subject or have taken a gap year.
+- Students are generally recommended to enrol in 6 subjects for senior school.
+  - Acts as a .bold[.fontinverse[safety net]] in the instance where students did not perform well (ATAR counts best of 5 subjects).
+  - However, a student drops down to 5 subjects in year 12 so they can focus on lesser subjects.
+
+**Observations lying above the red line**
+- Generally represents students who completed a year 11 subject in year 10 and re-enrolled in year 12.
+  - Making a given cohort in year 12 relatively larger than that of the year 11 cohort.
+]
+]
+
+
+???
+
+- The plot shows a scatter plot of year 12 enrolments against year 11 enrolments
+
+
+**Red line**
+- The 45° red line, suggests that a student continued the subject into year 12 after completing year 11
+  - Most schools follow it
+  
+**Observations lying below the red line** (switch to findings)
+- Student dropped the subject or took a gap year
+  - In general, it is advised for students to enrol in 6 subjects as it acts as a safety net in the instance where the student don't perform well in a subject (ATAR counts best of 5 subjects)
+  - However, students may drop down to 5 subjects in year 12 so they can focus on lesser subjects 
+
+**Observations lying above the red line**
+- Students who completed year 11 subject in year 10 and re-enrolled in year 12
+
+
+
+
+---
+
+class: center, middle, inverse
+
+.megabold[👨🏻‍🏫Predicting Enrolments🪄]
+
+---
+
+### The Multilevel Model
+
+&lt;img src="images/tree.png" width="853" style="display: block; margin: auto;" /&gt;
+
+???
+
+- I have chosen the multilevel model because of the nested structure of the dataset
+
+**These are the 3 possible models**
+- Two level nested structure: Schools with a time structure that is correlated to one another
+
+- Three level nested structure
+  - Schools nested within postcodes
+  - Schools nested within districts
+
+---
+
+.center[## Building the Multilevel Model 👷🏻‍]
+
+1. Exploring the data with basic linear models within schools
+
+2. Getting the dataset ready for modelling
+
+3. Unconditional means (null) model
+
+4. Unconditional growth model
+
+5. Text fixed effects using AIC
+
+6. Test random effects using parametric bootstrap
+
+7. Interpret model
+
+---
+
+class: center, middle, inverse
+
+.megabold[👨🏼‍🔬 Predicting Enrolments for Physics 🛩]
+
+---
+
+### Physics
+
+1.🔍 Exploring the data with basic linear model within schools.
+
+--
+
+.panelset[
+.panel[.panel-name[Plot]
+
+
+
+&lt;img src="slide-01_files/figure-html/linearmodel-1.png" width="720" /&gt;
+]
+.panel[.panel-name[Findings]
+
+**🔎Convenient at-a-glance visualisation🔍**
+- Summarises enrolment patterns with only two summary statistics - intercept and slope.
+  - Intercept represents enrolments when subject was first introduced.
+  - Slope convey's a school's average yearly increase in enrolment over the period.
+- Some schools (school 11 &amp; 358) appears to have larger increase in enrolments as compared to other schools.
+- Some enrolment stayed relatively constant (school 467 &amp; 614)
+
+**Findings**
+- School 358 have a relatively larger increase in enrolments over the years, as compared to the other schools.
+- School 1 introduced the subject in 1992 &amp; ceased the subject in 1997.
+- Schools 355 and 358 only introduced the subject in the later years.
+
+]
+]
+
+???
+
+Plot shows a basic linear model for each school to look at the general patterns in enrolments
+
+**Schools not offering the subject today**: School 1 (top-left) &amp; school 633 (bottom-right)
+
+Top-left: School 11 are one of the **larger schools** as compared to the other schools, which **larger increase in enrolments** over the years as compared to other schools
+
+---
+
+### Physics
+
+2.📠Getting the dataset ready for modelling.
+
+.panelset[
+
+.panel[.panel-name[Removing Data]
+
+.bold[.fontinverse[Removing zero enrolments in the data]]
+
+&lt;img src="slide-01_files/figure-html/removezero-1.png" width="576" style="display: block; margin: auto;" /&gt;
+]
+
+.panel[.panel-name[Linearise]
+
+.bold[.fontinverse[Linearise response variable using log transformation]]
+
+&lt;img src="slide-01_files/figure-html/linearlog-1.png" width="720" style="display: block; margin: auto;" /&gt;
+]
+]
+
+---
+
+### Physics
+
+3.🙈Unconditional means (null) model
+
+
+
+.fontinverse[.bold[Model Representation]]
+
+.panelset[
+.panel[.panel-name[Model]
+.fontinverse[.bold[The Unconditional Means Model]]
+
+- We begin with a .bold[null or empty model], where there are no predictors at any level.
+
+Provides useful information in understanding the structure of the data. 
+  
+(1) Assess the amount of variation at the schools level `\((\sigma^2)\)`, and among clusters `\((\tau^2)\)`.
+
+(2) Compute intraclass correlation `\((\rho_I)\)`, which describes the similarity between values from the same group.
+
+]
+
+.panel[.panel-name[Comparing models]
+
+
+```r
+# ----- Fit all possible null model
+
+# Two-level: Within schools
+model0.0 &lt;- lmer(log_enrolments ~ 1 + (1 | qcaa_school_id),
+                 data = phys_long)
+
+# Three-level: Schools nested within postcodes
+model0.1 &lt;- lmer(log_enrolments ~ 1 + (1 | school_postcode/qcaa_school_id),
+                 data = phys_long)
+
+# Three-level Schools nested within districts
+model0.2 &lt;- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
+                 data = phys_long)
+```
+
+&lt;table class="table table-hover table-striped" style="font-size: 15px; width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:left;"&gt;   &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; df &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; AIC &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model0.2: Schools nested within districts &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28367.49 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model0.1: Schools nested within postcodes &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 4 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28413.95 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:left;"&gt; Model0.0: Within schools &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 3 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 28422.00 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+.panel[.panel-name[Model]
+The unconditional means three-level model can be expressed as:
+
+- Level one (time point within schools)
+
+`$$Y_{tij} = \pi_{0ij} + \epsilon_{tij}$$`
+
+- Level two (schools within district)
+
+`$$\pi_{0ij} = \beta_{00j} + u_{0ij}$$`
+
+- Level three (districts)
+
+`$$\beta_{00j} = \gamma_{000} + r_{00j}$$`
+]
+
+.panel[.panel-name[Levels] 
+
+.pull-left[
+.extrasmall[
+.bold[At level one:]
+
+- `\(y_{tij}\)`: Log `enrolments` of school `\(i\)` from district `\(j\)` at time `\(t\)`.
+- `\(\pi_{0ij}\)`: True mean log `enrolments` of school `\(i\)` from district `\(j\)` across all time points.
+  - Note: this is not a model parameter, as we further model `\(\pi_{0ij}\)` at level two.
+- `\(\epsilon_{tij}\)`: The difference between the enrolment `\((Y_{tij})\)` to the mean log enrolments for school `\(i\)` in district `\(j\)`.
+
+.bold[At level two:]
+
+- `\(\beta_{00j}\)`: True mean log enrolment for district `\(j\)` across all schools from that district.
+  - This is not a model parameter, as we further model `\(a_{i}\)` at level three.
+- `\(u_{0ij}\)`: Difference between log enrolments of school `\(i\)` from district `\(j\)` from the mean log enrolments of all schools in district `\(j\)`.
+]
+]
+
+.pull-right[
+.extrasmall[
+.bold[At level three:]
+
+- `\(\gamma_{000}\)`: Fixed effects model parameter representing the true mean log enrolments across all schools, districts and time plots.
+- `\(r_{00j}\)`: Describes how far the mean log enrolments of all observations in district `\(j\)` is from the overall mean log enrolments across all districts, schools, and time points.
+  - Note: none of the error terms `\((\epsilon_{tij}\)`, `\(r_{0ij}\)`, and `\(u_{00j})\)` are model parameters; they simply account for differences between the observed data and expected values in the model. 
+]
+]
+]
+.panel[.panel-name[Combined Levels]
+
+Combining level 1, 2, 3, the .bold[.fontinverse[model specification form]] can be obtained:
+
+`$$\begin{align*} Y_{ij} &amp; = \pi_{0ij} + \epsilon_{tij} \\
+&amp; = \beta_{00j} + u_{0ij} + \epsilon_{tij} \\
+&amp; = \gamma_{000} + r_{00j} + u_{0ij} + \epsilon_{tij} \end{align*}$$`
+
+where,
+
+`$$\begin{align*} \epsilon_{tij} &amp; \sim N(0, \sigma^2) \\
+u_{0ij}        &amp; \sim N(0, \tau^2_{00}) \\
+r_{00j}        &amp; \sim N(0, \phi^2_{00}) \end{align*}$$`
+
+
+- `\(\epsilon_{tij}\)`: Variance over time within schools.
+- `\(\tau^2_{00}\)`: Variance between schools from the same district.
+- `\(\phi^2_{00}\)`: Variance across districts.
+]
+]
+
+???
+
+- In selecting the best model, I compared the AIC for all possible models 
+
+- And based on the ICC, the three-level model, where schools are nested within districts is the best
+
+---
+
+### Physics
+
+.fontinverse[.bold[Intraclass Correlation (ICC)]]
+
+👉🏻 In a null model, the intraclass correlation can be obtained
+
+--
+
+1..bold[Level-two ICC]: Correlation of a school `\(i\)` from district `\(j\)` in time `\(t\)` and in time `\(t^*\)`:
+
+`$$ICC = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.5294}{(0.5294 + 0.1178 + 0.2188)} = 0.6113$$`
+
+???
+
+- The high level-two ICC value suggests that the correlation of enrolments of a school at two different time points are highly correlated
+
+
+--
+
+&lt;br&gt;
+
+2..bold[Level-three ICC]: Correlation between schools `\(i\)` and `\(i^*\)` from a specific district `\(j\)`:
+
+`$$ICC = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1178}{(0.5294 + 0.1178 + 0.2188)} = 0.1360$$`
+
+???
+- There is a lower correlation between schools from the same district
+
+- Suggesting that most of the variation were captured at the school level
+
+
+---
+
+### Physics 
+
+4.🤸🏻Unconditional growth model
+
+.bold[.fontinverse[Comparing the Models]]
+
+.panelset[
+
+.panel[.panel-name[Levels]
+
+&lt;svg viewBox="0 0 192 512" style="height:1em;position:relative;display:inline-block;top:.1em;" xmlns="http://www.w3.org/2000/svg"&gt;  &lt;path d="M0 384.662V127.338c0-17.818 21.543-26.741 34.142-14.142l128.662 128.662c7.81 7.81 7.81 20.474 0 28.284L34.142 398.804C21.543 411.404 0 402.48 0 384.662z"&gt;&lt;/path&gt;&lt;/svg&gt; The next model incorporates time as a linear growth at level one (with no predictors at level two or three)
+
+- Level one (time point within schools)
+`$$Y_{tij} = \pi_{0ij} + \pi_{1ij}\color{darkgoldenrod}{year92_{tij}} + \epsilon_{tij}$$`
+
+- Level two (school within district)
+`$$\pi_{0ij} = \beta_{00j} + u_{0ij} \\ \pi_{1ij} = \beta_{10j} + u_{1ij}$$`
+
+- Level three (districts)
+`$$\beta_{00j} = \gamma_{000} + r_{00j} \\
+\beta_{10j} = \gamma_{100} + r_{10j}$$`
+
+]
+
+.panel[.panel-name[Model Fit]
+
+
+
+
+.codeoutput[.p[ 
+
+```r
+summary(model1.0)
+
+# --- Random effects
+#  Groups                       Name        Variance    Std.Dev.  Corr
+#  qcaa_district:qcaa_school_id (Intercept) 1.303630415 1.1417664
+#                               year92      0.001515415 0.0389283 -0.728
+#  qcaa_district                (Intercept) 0.054645757 0.2337643
+#                               year92      0.000064797 0.0080496 0.654
+#  Residual                                 0.168622796 0.4106371
+
+# --- Fixed effects
+#               Estimate Std. Error   t value
+# (Intercept) 2.34184885 0.08659973 27.042219
+# year92      0.01183235 0.00300599  3.936256
+
+# --- Number of groups
+#  Number of Level Two (schools within districts) groups =  445
+#  Number of level Three (Districts) groups =  13
+```
+]
+]
+]
+
+.panel[.panel-name[Model Representation]
+
+In combining the levels, the full composite model may be obtained:
+
+`$$\begin{aligned}
+Y_{tij} &amp;= \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
+&amp;= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year92_{tij} +  \epsilon_{tij} \\
+&amp;= (\gamma_{000} + r_{00j} + u_{0ij})  + (\gamma_{100} + r_{10j} + u_{1ij})year92_{tij} + \epsilon_{tij} \\
+&amp;= [\gamma_{000} + \gamma_{100}year92_{tij}] + [r_{00j} + u_{0ij} + \epsilon_{tij} + (r_{10j} + u_{1ij})year92_{tij}]
+\end{aligned}$$`
+
+With, `\(\epsilon_{ijk} \sim N(0, \sigma^2)\)`,
+`$$\left( \begin{matrix} u_{0j} \\ u_{1j} \end{matrix} \right)
+\sim N
+\left(
+\begin{matrix} 0 \\ 0 \end{matrix}
+\begin{matrix} , \end{matrix}
+\begin{matrix} \tau^2_{00} &amp; \tau_{01} \\ \tau_{01} &amp; \tau^{2}_{10} \end{matrix}
+\right)$$`
+
+`$$\left( \begin{matrix} r_{00j} \\ r_{10j} \end{matrix} \right)
+\sim N
+\left(
+\begin{matrix} 0 \\ 0 \end{matrix}
+\begin{matrix} , \end{matrix}
+\begin{matrix} \phi^2_{00} &amp;  \\ \phi_{01} &amp; \phi^{2}_{10} \end{matrix}
+\right)$$`
+
+]
+]
+
+???
+
+- Next model incorporates time into the model
+
+**Model output**
+
+- The negative correlation ($-0.728$) suggests that schools with higher enrolment numbers are generally associated smaller growth in enrolments over the years
+
+- The positive correleation ($0.654$) indicates that districts with higher enrolments tend to have a larger increase in enrolments over the years.
+
+---
+
+#### Physics
+
+5.💻Test fixed effects using AIC
+
+
+
+
+
+
+
+.bold[.fontinverse[ANOVA Test]]
+
+.pull-left[
+&lt;img src="images/model.png" width="124" height="150%" style="display: block; margin: auto;" /&gt;
+]
+
+
+
+.pull-right[
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; AIC &lt;/th&gt;
+   &lt;th style="text-align:left;"&gt; model &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24501.28 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.7 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24501.43 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.4 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24503.01 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.1 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24506.68 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.0 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24517.83 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.2 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.8 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.10 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.9 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24544.00 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.6 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24554.30 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.3 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+???
+
+- AIC is used to test the fixed effects
+
+- Fitted all possible models -- from a full model to one without any fixed effects
+  - Model4.0: Largest possible model
+  - Model4.10: Smallest possible model
+  
+- Based on the AIC, model4.7 is the best model, which is a relatively small model.
+
+---
+
+#### Physics
+
+6.💻Test Random Effects using Parametric Bootstrap
+
+
+
+.panelset[
+.panel[.panel-name[Steps]
+(1) Fit reduced model (`F0`) to obtain estimated fixed effects &amp; variance components.
+
+(2) Use estimated fixed effects &amp; variance components from null model to regenerate new set of response (log(`enrolments`)) &amp; associated predictors for each observations as the original dataset.
+
+(3) Fit both reduced model (`F0`) and the full model (`F1`) to the new data.
+
+(4) Compute likelihood ratio test statistic comparing Models (`F0`) and (`F1`),
+
+(5) Repeat 2-4 a large number of times (_e.g._ 1,000)
+]
+
+.panel[.panel-name[Likelihood Ratio Test]
+&lt;table class="table" style="width: auto !important; margin-left: auto; margin-right: auto;"&gt;
+ &lt;thead&gt;
+  &lt;tr&gt;
+   &lt;th style="text-align:right;"&gt; npar &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; AIC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; BIC &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; logLik &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; deviance &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Chisq &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Df &lt;/th&gt;
+   &lt;th style="text-align:right;"&gt; Pr_boot(&amp;gt;Chisq) &lt;/th&gt;
+  &lt;/tr&gt;
+ &lt;/thead&gt;
+&lt;tbody&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 14 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24504.51 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24615.13 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -12238.25 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24476.51 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; NA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; NA &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; NA &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 16 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24501.28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24627.71 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; -12234.64 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24469.28 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 7.2276 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.006 &lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+]
+
+.panel[.panel-name[Visualising Results]
+.center[
+
+
+&lt;img src="slide-01_files/figure-html/unnamed-chunk-24-1.png" width="576" /&gt;
+]
+]
+]
+
+???
+
+- Next, the parametric bootstrap was used to compare the random effects
+
+- The p-value of 0.006, which means that the larger model is favoured
+
+
+---
+
+#### Physics
+
+7.🤓Interpreting Model
+
+.panelset[
+.panel[.panel-name[Final Model]
+
+```r
+# Fit best model with restricted maximum likelihood estimates
+model_f &lt;- lmer(log_enrolments ~ year92 + sector + year92:sector + unit + sector:unit + 
+               (year92 | qcaa_district:qcaa_school_id) +  
+               (year92 | qcaa_district),
+             REML = TRUE,
+             control = lmerControl(optimizer = "bobyqa"),
+             data = phys_long)
+```
+]
+
+.panel[.panel-name[Model Representation]
+
+- Level one (measurement variable)
+`$$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$`
+
+- Level two (schools within districts) 
+`$$\begin{align*}\pi_{0ij} &amp; = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij} \\
+\pi_{1ij} &amp; = \beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij} \end{align*}$$`
+
+- Level three (districts)
+`$$\beta_{00j} = \gamma_{000} + r_{00j} \\
+\beta_{01j} = \gamma_{010} + r_{01j} \\
+\beta_{02j} = \gamma_{020} + r_{02j} \\
+\beta_{03j} = \gamma_{030} + r_{03j} \\
+\beta_{10j} = \gamma_{100} + r_{10j} \\
+\beta_{11j} = \gamma_{110} + r_{11j}$$`
+
+]
+
+.panel[.panel-name[Composite Model]
+`$$\begin{aligned}Y_{tij} =\ &amp; \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\\ =\ &amp; (\beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij}) + \\ &amp; (\beta_{10j} + \beta_{11j}sector_{ij} +  u_{1ij})year92_{tij} + \epsilon_{tij} \\ =\ &amp; [(\gamma_{000} + r_{00j}) + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + \\ &amp; (\gamma_{030} + r_{03j}) sector_{ij}unit_{ij} + u_{0ij}] + [(\gamma_{100} + r_{10j}) + \\ &amp; (\gamma_{110} + r_{11j})sector_{ij} + u_{1ij}]year92_{tij} + \epsilon_{tij} \\ =\ &amp; [\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{020}sector_{ij}unit_{ij} + \\ &amp; \gamma_{100}year92_{tij} + \gamma_{110}year92_{tij}sector_{ij}] + \\ &amp; [ r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{03j}sector_{ij}unit_{ij} + u_{0ij} + \\ &amp; r_{10j}year92_{tij} + r_{11j}year92_{tij}sector_{ij} + u_{1ij} \epsilon_{tij}] 
+\end{aligned}$$`
+]
+]
+
+---
+
+.bold.fontinverse[Visualisations]
+
+.panelset[
+.panel[.panel-name[Fixed Effects]
+
+
+
+
+&lt;img src="slide-01_files/figure-html/unnamed-chunk-28-1.png" width="504" style="display: block; margin: auto;" /&gt;
+]
+
+.panel[.panel-name[Random Effects]
+
+
+.center[
+&lt;img src="slide-01_files/figure-html/unnamed-chunk-30-1.png" width="504" style="display: block; margin: auto;" /&gt;
+]]
+
+.panel[.panel-name[Random Effects]
+.center[
+&lt;img src="slide-01_files/figure-html/unnamed-chunk-31-1.png" width="504" style="display: block; margin: auto;" /&gt;
+]
+]
+]
+
+???
+
+**Fixed effects**
+
+- Government started off with the highest enrolments, but showed a slow increase in enrolments over the years
+
+- Independent schools had the lowest enrolments initially, but enrolments were increased significantly over the years
+  - It seems like over the next few years, independent schools would have more enrolments as compared to catholic schools
+  
+**Random effects for schools**
+
+- The negative correlation can be seen, wheer larger schools are generally associated with smaller increase in enrolments over the years
+
+**Random effects for districts**
+
+- On the other hand, districts have a positive correlation
+  - Which means that districts with larger enrolments are going to have a larger increase in enrolments 
+  - In other words, larger districts are going to be larger
+
+---
+
+class: center
+
+.bold[.fontinverse[Predictions for 20 Randomly Selected Schools]]
+
+👩‍💻 👨‍💻 👨‍💻 👨‍💻 👩‍💻 
+
+--
+
+&lt;img src="slide-01_files/figure-html/unnamed-chunk-32-1.png" width="504" /&gt;
+
+---
+
+class: center, middle
+
+.mega[THE END]
+
+--
+
+💥
+
+
+
+    </textarea>
+<style data-target="print-only">@media screen {.remark-slide-container{display:block;}.remark-slide-scaler{box-shadow:none;}}</style>
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>var slideshow = remark.create({
+"highlightStyle": "github",
+"highlightLines": true,
+"countIncrementalSlides": false,
+"navigation": {
+"scroll": false
+}
+});
+if (window.HTMLWidgets) slideshow.on('afterShowSlide', function (slide) {
+  window.dispatchEvent(new Event('resize'));
+});
+(function(d) {
+  var s = d.createElement("style"), r = d.querySelector(".remark-slide-scaler");
+  if (!r) return;
+  s.type = "text/css"; s.innerHTML = "@page {size: " + r.style.width + " " + r.style.height +"; }";
+  d.head.appendChild(s);
+})(document);
+
+(function(d) {
+  var el = d.getElementsByClassName("remark-slides-area");
+  if (!el) return;
+  var slide, slides = slideshow.getSlides(), els = el[0].children;
+  for (var i = 1; i < slides.length; i++) {
+    slide = slides[i];
+    if (slide.properties.continued === "true" || slide.properties.count === "false") {
+      els[i - 1].className += ' has-continuation';
+    }
+  }
+  var s = d.createElement("style");
+  s.type = "text/css"; s.innerHTML = "@media print { .has-continuation { display: none; } }";
+  d.head.appendChild(s);
+})(document);
+// delete the temporary CSS (for displaying all slides initially) when the user
+// starts to view slides
+(function() {
+  var deleted = false;
+  slideshow.on('beforeShowSlide', function(slide) {
+    if (deleted) return;
+    var sheets = document.styleSheets, node;
+    for (var i = 0; i < sheets.length; i++) {
+      node = sheets[i].ownerNode;
+      if (node.dataset["target"] !== "print-only") continue;
+      node.parentNode.removeChild(node);
+    }
+    deleted = true;
+  });
+})();
+(function() {
+  "use strict"
+  // Replace <script> tags in slides area to make them executable
+  var scripts = document.querySelectorAll(
+    '.remark-slides-area .remark-slide-container script'
+  );
+  if (!scripts.length) return;
+  for (var i = 0; i < scripts.length; i++) {
+    var s = document.createElement('script');
+    var code = document.createTextNode(scripts[i].textContent);
+    s.appendChild(code);
+    var scriptAttrs = scripts[i].attributes;
+    for (var j = 0; j < scriptAttrs.length; j++) {
+      s.setAttribute(scriptAttrs[j].name, scriptAttrs[j].value);
+    }
+    scripts[i].parentElement.replaceChild(s, scripts[i]);
+  }
+})();
+(function() {
+  var links = document.getElementsByTagName('a');
+  for (var i = 0; i < links.length; i++) {
+    if (/^(https?:)?\/\//.test(links[i].getAttribute('href'))) {
+      links[i].target = '_blank';
+    }
+  }
+})();
+// adds .remark-code-has-line-highlighted class to <pre> parent elements
+// of code chunks containing highlighted lines with class .remark-code-line-highlighted
+(function(d) {
+  const hlines = d.querySelectorAll('.remark-code-line-highlighted');
+  const preParents = [];
+  const findPreParent = function(line, p = 0) {
+    if (p > 1) return null; // traverse up no further than grandparent
+    const el = line.parentElement;
+    return el.tagName === "PRE" ? el : findPreParent(el, ++p);
+  };
+
+  for (let line of hlines) {
+    let pre = findPreParent(line);
+    if (pre && !preParents.includes(pre)) preParents.push(pre);
+  }
+  preParents.forEach(p => p.classList.add("remark-code-has-line-highlighted"));
+})(document);</script>
+
+<script>
+slideshow._releaseMath = function(el) {
+  var i, text, code, codes = el.getElementsByTagName('code');
+  for (i = 0; i < codes.length;) {
+    code = codes[i];
+    if (code.parentNode.tagName !== 'PRE' && code.childElementCount === 0) {
+      text = code.textContent;
+      if (/^\\\((.|\s)+\\\)$/.test(text) || /^\\\[(.|\s)+\\\]$/.test(text) ||
+          /^\$\$(.|\s)+\$\$$/.test(text) ||
+          /^\\begin\{([^}]+)\}(.|\s)+\\end\{[^}]+\}$/.test(text)) {
+        code.outerHTML = code.innerHTML;  // remove <code></code>
+        continue;
+      }
+    }
+    i++;
+  }
+};
+slideshow._releaseMath(document);
+</script>
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+(function () {
+  var script = document.createElement('script');
+  script.type = 'text/javascript';
+  script.src  = 'https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-MML-AM_CHTML';
+  if (location.protocol !== 'file:' && /^https?:/.test(script.src))
+    script.src  = script.src.replace(/^https?:/, '');
+  document.getElementsByTagName('head')[0].appendChild(script);
+})();
+</script>
+  </body>
+</html>
