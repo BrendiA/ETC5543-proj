@@ -67,8 +67,8 @@ The following research questions guided the report:
 
 ## Extracting the dataset
 
-```{r data-description}
-tibble(
+```{r}
+data_desc <- tibble(
   Variable =
     c(
       # Enrolment details
@@ -106,7 +106,9 @@ tibble(
       "School district",
       "School postcode",
       "School sector (Government, Independent, Catholic)"
-    )) %>% 
+    ))
+
+data_desc %>% 
   kable(caption = "Description of the dataset used for the analysis") %>% 
   kable_styling(full_width = FALSE,
                 bootstrap_options = c("hovered", "striped")) %>% 
@@ -115,7 +117,8 @@ tibble(
                     "School information" = 6)) 
 ```
 
-The dataset used for this analysis encompasses enrolment information for all participating schools in the QCE system, and can be extracted in the Queensland Curriculum and Assessment Authority (QCAA) website, where the old enrolments data for the old QCE system (enrolments spanning from 1992 to 2019) can be found under the ["Statistics before 2020" toggle](https://www.qcaa.qld.edu.au/news-data/statistics/statistics-before-2020) (@school-participation) while the enrolments data for the new QCE system can be found under the ["Statistics from 2020" toggle](https://www.qcaa.qld.edu.au/news-data/statistics/statistics-from-2020). 
+
+The dataset used for this analysis encompasses enrolment information for all participating schools in the QCE system, and can be extracted in the Queensland Curriculum and Assessment Authority (QCAA) website, where the enrolments data for the old QCE system (enrolments spanning from 1992 to 2019) can be found under the ["Statistics before 2020" toggle](https://www.qcaa.qld.edu.au/news-data/statistics/statistics-before-2020) (@school-participation) while the enrolments data for the new QCE system can be found under the ["Statistics from 2020" toggle](https://www.qcaa.qld.edu.au/news-data/statistics/statistics-from-2020). 
 
 Each row (observation) corresponds to a school's enrolment information for a subject in a given year, in addition to the school and subject details. The dataset can be broken down into the three main components, as seen above (Table \@ref(tab:data-description)). The data above has been cleaned and is ready for the format that allows for analysis, the further sections will describe the data wrangling process in details.
 
@@ -266,7 +269,8 @@ tibble(
                                                 "Extra 'P-12'",
                                                 "'&' used instead of 'and'")) %>% 
   kable(caption = "Example: Manually fixing errors due to issues in School Nmaes") %>% 
-  kable_styling(full_width = FALSE) 
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 However, there were cases in which school names have to be recoded manually as the school names were inconsistent. Some of the examples are demonstrated in Table \@ref(tab:school-names-error).
@@ -320,9 +324,12 @@ first_year_no_year_12 <- mathsci_all %>%
 
 Figure \@ref(fig:missing-data) illustrates that most of the observations were present, except for there variables relating to enrolments (`year_11_enrolments` and `year_12_enrolments`) and the Department of Education Centre Code (`doe_centre_code`). 
 
-**Zero enrolments in Year 11 and Year 12**
+**Zero enrolments in Year 11**
 
-First, 67.13% of the missing values in year 11 enrolments relate to the 2019 graduating cohort that were part of the Queensland's first Prep Year cohort in 2007. Next, 71.48% of the zero enrolments in year 12 corresponds to the first year in which a given school introduces a subject. As year 12 enrolments requires students to complete year 11 syllabus, most students may not partake in the subject when the schools first introduce the subject. In further scrutiny, the other schools that have zero enrolments are usually smaller schools (in rural areas) or schools may only offer a subject for year 11 students but not year 12 students in certain years and vice versa. For example, Mossman State High School offered Specialist Mathematics subject in some years --- Offered the subject to Year 11 students of 2020 and Year 12 students of 2021, but not for Year 11 students of 2021 and Year 12 students of 2022 (@mossman-high). 
+First, 67.13% of the missing values in year 11 enrolments relate to the 2019 graduating cohort that were part of the Queensland's non-compulsory first Prep Year cohort in 2007. This cohort commenced in 2007 at the current time and will graduate from year 12 in 2019. Therefore, from 2020, every year will be a full cohort of students, implying an additional group of students each year and thus higher expected enrolment for the new QCE system. As this 2007 prep year cohort leaves the schooling system, the enrolments from 2020 will increase considerably as a full cohort will be realised, as will be seen in the later sections.
+
+**Zero enrolments in Year 12**
+Next, 71.48% of the zero enrolments in year 12 corresponds to the first year in which a given school introduces a subject. As year 12 enrolments requires students to complete year 11 syllabus, most students may not partake in the subject when the schools first introduce the subject. In further scrutiny, the other schools that have zero enrolments are usually smaller schools (in rural areas) or schools may only offer a subject for year 11 students but not year 12 students in certain years and vice versa. For example, Mossman State High School offered Specialist Mathematics subject in some years --- Offered the subject to Year 11 students of 2020 and Year 12 students of 2021, but not for Year 11 students of 2021 and Year 12 students of 2022 (@mossman-high). 
 
 **Missing Department of Education Centre Code**
 
@@ -335,12 +342,62 @@ Errors in school postcodes usually arise form school postcodes codes being reass
 
 # Exploratory Data Analaysis
 
+```{r}
+# Convert to long format for plotting
+mathsci_all_long <- mathsci_all %>% 
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments")
+
+mathsci_all_long %>% 
+  mutate(group = paste0(completion_year, ":", sector)) %>% 
+  ggplot() +
+  geom_boxplot(aes(x = completion_year,
+                   y = enrolments,
+                   fill = sector,
+                   group = group)) +
+  facet_wrap(~ subject_name,
+             scales = "free")
+
+# Plot ggseasonal plot instead?
+``` 
+
+
+## Number of school students studying STEM subjects
+
+```{r}
+# Participating schools, filled by sector
+mathsci_all %>% 
+  group_by(completion_year, sector, subject_name) %>% 
+  tally() %>% 
+  ggplot() +
+  geom_col(aes(x = completion_year,
+               y = n,
+               fill = sector)) +
+  facet_wrap(~subject_name,
+             scales = "free_y")
+```
+
+
+```{r}
+mathsci_all %>% 
+  group_by(completion_year, subject_name) %>% 
+  mutate(total_schools = n()) %>% 
+  distinct(completion_year, subject, subject_name, total_schools) %>% 
+  ggplot() +
+  geom_col(aes(x = completion_year,
+               y = total_schools),
+           fill = "grey50") +
+  facet_wrap(~ subject_name)
+```
+
+
 ## Total Enrolments for each Subject over the years
 
 ```{r}
-# Compute total enrolments for each year, by subject
+# Compute total Year 12 enrolments for each year, by subject
 total_enrolments <- mathsci_all %>% 
-  group_by(completion_year, subject_name) %>% 
+  group_by(completion_year, subject_name, subject) %>% 
   summarise(total_year12_enrolments = sum(year_12_enrolments),
             .groups = "drop") 
 
@@ -359,9 +416,16 @@ total_enrolments %>%
              scales = "free_y") +
   scale_x_continuous(breaks = seq(1992, 2022, by = 2),
                      labels = seq(1992, 2022, by = 2)) +
-  theme(panel.grid.minor = element_blank())
+  theme(panel.grid.minor = element_blank(),
+        axis.text.x = element_text(angle = 90)) +
+  labs(title = "Total Enrolments for each subject per cohort",
+       x = "Completion Year",
+       y = "Year 12 Enrolments")
 ```
 
+As mentioned, since the 2007 prep year cohort left the schooling system at the end of 2019, enrolments will be replaced by a full cohort. It is not surprising therefore that all subjects saw a surge in enrolments from 2019 to 2020. Based on a study by Independent Schools Queensland (@isq-enrolments-2020), this resulted in approximately 6.2% (22,050) increase in secondary student enrolments from 2019 and 2020 in independent sectors alone. 
+
+Subjects were introduced at different time frames. Aquatic practices and Marine Science were only introduced in 2015 and 2014 respectively. There was a halt in Agricultural Practices subject in year 2000, before being re-introduced again in 2015. Furthermore, the inception of the new QCE system was two new subjects, Psychology and Essential Mathematics.
 
 ## Time plot: Enrolments across the years
 
@@ -387,6 +451,19 @@ mathsci_all_long %>%
                 group = qcaa_school_id),
             colour = "grey40",
             alpha = 0.4) +
+  stat_summary(aes(x = completion_year,
+                   y = enrolments,
+                   group = 1),
+               fun.y = mean,
+               colour = "orange",
+               geom = "line",
+               size = 1.5) +
+  # geom_smooth(aes(x = completion_year,
+  #                 y = enrolments,
+  #                 group = 1),
+  #             alpha = 0.8,
+  #             se = FALSE,
+  #             colour = "orange") +
   scale_x_continuous(breaks = seq(1992, 2022, by = 2),
                      labels = seq(1992, 2022, by = 2)) +
   facet_wrap(~ subject_name,
@@ -394,14 +471,12 @@ mathsci_all_long %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-Figure \@ref(fig:time-plot-all) displays the year 12 enrolments in for each subject. Each line represents year 12 enrolments for a single school. For most subjects, some relatively large schools can be identified as their enrolments numbers were significantly higher than most other schools. The year 12 enrolments for these large schools were especially prominent in the later years, where the new QCE system was introduced.
+Figure \@ref(fig:time-plot-all) displays a spaghetti plot of year 12 enrolments for each subject, with overall fit using the the mean of enrolments for all schools in a given year. Each line represents year 12 enrolments for a single school. For most subjects, some relatively large schools can be identified as their enrolments numbers were significantly higher than most other schools. The year 12 enrolments for these large schools were especially prominent in the later years, where the new QCE system was introduced.
 
 Some Subjects that were introduced in the 1990s such as Biology, Chemistry, Physics, General Mathematics and Mathematical Methods showed rather stable enrolment numbers as enrolment trend across schools appears to be proportional to one another. In other words, when there is a general increase (decrease) in enrolments, most schools will show an increase (decrease), as seen by the large cluster of observations. In contrary, Agricultural Earth and Environmental Science, although introduced in the 1990s, did not exhibit such patterns as the enrolment numbers were rather erratic. However, it can be observed that there were significantly less enrolments for these subjects, implying that not many schools offer this subject or the subject is not popular among students.
 
-Subjects were introduced at different time frames. Aquatic practices and Marine Science were only introduced in 2015 and 2014 respectively. There was a halt in Agricultural Practices subject in year 2000, before being re-introduced again in 2015. Furthermore, the inception of the new QCE system was two new subjects, Psychology and Essential Mathematics.
 
-
-## Linear relationship between year 11 and year 12 enrolments
+## It is common for year 11 students to continue pursuing year 12 units
 
 ```{r year11-vs-year12, fig.cap = "Year 12 enrolments agianst year 11 enrolments, with a 45° line to indicating a perfect linear relationship"}
 mathsci_all %>%
@@ -415,7 +490,7 @@ mathsci_all %>%
   # Plot 45° line 
   geom_abline(slope = 1,
               intercept = 0,
-              size = 1,
+              size = 1.5,
               colour = "red",
               alpha = 0.5) +
   facet_wrap(subject_name ~ subject,
@@ -454,7 +529,7 @@ up_or_down <- mathsci_all %>%
                values_to = "enrolments") 
 
 # Remove outliers
-up_or_down <- mathsci_all_long %>% 
+up_or_down <- up_or_down %>% 
   group_by(qcaa_school_id) %>% 
   # Zero year 12 students due to introduction of subject
   filter(completion_year != min(completion_year)) %>% 
@@ -489,6 +564,23 @@ In general, larger schools (with relatively high enrolment numbers for a given s
 
 ## Distribution of enrolments for each sector
 
+### Comparing distirbution of subjects
+
+```{r density-plots}
+library(ggridges)
+
+mathsci_all_long %>% 
+  ggplot() +
+  geom_density(aes(x = enrolments),
+               fill = "cornsilk") +
+  facet_wrap(~subject_name,
+             scales = "free")
+```
+
+The distribution of enrolments for each subject appears to be right skewed (Figure \@ref(fig:density-plots)). This is possibly attributed to the size of schools, as some schools are significantly larger than others. 
+
+### Comparing enrolments across sectors using boxplot 
+
 ```{r boxplot-dist}
 # Distribution of enrolments for each subject by sector
 mathsci_all %>%
@@ -502,6 +594,291 @@ mathsci_all %>%
 ```
 
 In most subjects, the distribution in enrolments across all sectors were rather similar (Figure \@ref(fig:boxplot-dist). Subjects that were introduced early such as Biology, Chemistry, Specialist Mathematics, Physics showed stable enrolment numbers, with little variation across the different sectors. As highlighted by the outliers in all subjects, there were schools that has significantly more enrolments, these observations may refer to the larger schools in Queensland. These outliers are considerably prominent, especially in Government schools.
+
+# Predicting enrolments 
+
+## The Multilvel Model
+
+**Why the multilevel model?**
+
+**Edit: Advantages of a multilevel model**
+Using the multilevel model allows for simultaneous modelling of both intra-school change (*i.e.* how school enrolments are changing overtime) and interindividual change (*i.e.* Differences in temporal change across schools). As The dataset is imbalanced due to schools introducing or ceasing a given subject at different times, the multilevel model is appropriate as it is able to utilise available data from incomplete observations without reducing sample size (*e.g.* as compared to a repeated measure ANOVA or a linear regression model). 
+
+In general, multilevel models takes on the general form: Repeated measures (level 1) nested within individuals (level 2) and possibly individuals nested within some higher-level clusters (level 3). With respect to the data, level 1 relates to a single measure in time, level 2 relates to the individual schools offering the maths and science subjects and level 3 corresponds to the schools nested within districts or postcodes. As our data is nested within schools and possibly in higher-level clusters, the multilevel model is appropriate.
+
+## Methodology (Building the multilevel model)
+
+As aforementioned, the objective of this report is to predict enrolments in light of the new QCE system.
+
+### 1. Exploring the data with basic linear model within schools
+    
+A basic linear model within schools provide an at-a-glance visualisation of the enrolment trends within each school. The linear model summarises enrolment trends with only two summary statistics, an intercept and a slope, which is useful for panel data as enrolments can be viewed overtime per school.
+
+### 2. Getting the dataset ready for modelling
+    
+Each subject encounters different circumstances (*e.g.* new subjects introduced only in 2020), the following steps are the main steps taken to get the dataset for a single subject ready for modelling. However, it should be noted that in some subjects, more or less steps could be taken given the context. 
+
+**Removing observations with zero enrolments**
+Subjects with 0 enrolments for a given cohort will be removed as these enrolment figures will artificially inflate/deflate enrolment numbers. As outlined, most of the zero enrolments in 2019 was due to the completion of the 2007 prep year cohort. Next, most year 12 subjects with with zero enrolments relates to the first year schools introduced the subject. 
+
+**Linearising response variable `enrolments` using log transformation**
+As seen in the density plots for each subject (Figure \@ref(fig:density-plots)), enrolment numbers are right skewed due to the various school sizes in Queensland. As such, a log transformation is utilised to allow models to be estimated by the linear mixed models. Furthermore, a log transformation is suitable in this context as enrolments are by nature, a positive number.
+  
+### 3. Unconditional means (null) model
+    
+In a multilevel context, it is helpful to begin with an unconditional means (null) model where there are no predictors at any level, only an intercept. This model provides useful information in understanding the structure of the data. It can be utilised to obtain estimates of residuals and intercept variance that allows for assessment of the variation at each level, and in comparing variability in (1) schools within clusters for a level three model or (2) within schools for a level three model. As an example, the intraclass correlation coefficient (*ICC* = $\rho_i$) can be computed. *ICC* refers to proportion of variance in the response (`enrolments`) that can be explained by the grouping structure of the hierarchical model; It is often easier to conceptualise it as the correlation between the enrolments of two schools, randomly selected from a cluster or as the same amount of variance explained by those groupings (similar to an $R^2$).
+
+The **three-level** unconditional means model can be expressed as:
+
+- Level one (time point within schools)
+  $$Y_{tij} = \pi_{0ij} + \epsilon_{tij}$$
+  
+- Level two (schools within clusters)
+  $$\pi_{0ij} = \beta_{00j} + u_{0ij}$$
+
+- Level three (clusters)
+  $$\beta_{00j} = \gamma_{000} + r_{00j}$$
+
+In this case, clusters (*i.e.* in this dataset, districts or postcodes) are considered to be independent, but schools within the same districts and the measurements at different time points for the same school are correlated. This will be a good time to **introduce the notations used for the report**. 
+
+At level one:
+
+- $y_{tij}$: response variable (`enrolments`) of school $i$ from cluster $j$ at time $t$
+- $\pi_{0ij}$: True/average mean of response (`enrolments`) of school $i$ from district $j$ across all time points
+  - This is not a parameter, as model will be further broken down at level two
+- $\epsilon_{tij}$: Difference between observed `enrolments` ($y_{tij}$) to the mean `enrolments` for school $i$ in district $j$
+
+At level two:
+
+- $\beta_{00j}$: True mean `enrolments` for cluster $j$ across all schools from the given ($j^{th}$) district
+  - This is not a parameter, as model will be further broken down at level three
+- $u_{0ij}$: Difference between `enrolments` of school $i$ from district $j$ from the mean `enrolments` of all schools in district $j$
+
+At level three:
+
+- $\gamma_{000}$: Fixed effects model parameter representing the true mean `enrolments` across all schools, districts and time points
+- $r_{00j}$: Describes the difference in enrolments between the mean `enrolments` from all observations in district $j$ and the overal mean enrolments across all districts, schools and time points.
+
+
+In combining level 1,2 and 3, the composite model can be obtained:
+
+$$\begin{aligned} 
+
+  Y_{ij} & = \pi_{0ij} + \epsilon_{tij} \\
+         & = (\beta_{00j} + u_{0ij}) + \epsilon_{tij} \\
+         & = (\gamma_{000} + r_{00j} + u_{0ij}) + \epsilon_{tij} \\
+
+\end{aligned}$$
+
+where,
+
+$$\begin{aligned} 
+
+  \epsilon_{tij} & \sim N(0, \sigma^2) \\
+  u_{0ij}        & \sim N(0, \tau^2_{00}) \\
+  r_{00j}        & \sim N(0, \phi^2_{00}) 
+  
+\end{aligned}$$
+
+Where,
+- $\epsilon_{tij}$: Variance over time within schools
+- $\tau^2_{00}$: Variance between schools from the same cluster 
+- $\phi^2_{00}$: Variance across clusters 
+
+
+### 4. Unconditional growth model
+    
+Accordingly, the second model will incorporate time as a linear growth at level one (with no predictors at level two and three) to reduce unexplained variability within schools. This is known as the 'unconditional growth model', which allows for assessing the within-school variability that can be attributed to the systematic changes over time. 
+
+To reduce correlation between the linear components of the time effect, the time variable rescaled. For this report, time variable (`completion_year`) is rescaled to the zero point, that is, the first year in which the school introduced the subject. This gives the intercept the interpretation of baseline or initial status of the enrolments.
+
+As with the unconditional means model, the unconditional growth model can be expressed as:
+
+- Level one (time point within schools)
+  $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year0_{tij} + \epsilon_{tij}$$
+
+Where, `year0` is the time variable.
+
+- Level two (schools within clusters)
+  $$\pi_{0ij} = \beta_{00j} + u_{0ij} \\
+    \pi_{1ij} = \beta_{10j} + u_{1ij}$$
+  
+- Level three (clusters)
+  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
+    \beta_{10j} = \gamma_{100} + r_{10j}$$
+    
+    
+As compared to the null-model, the between-school and between-clusters variability are now partitioned into variability in initial status ($\tau^2_{00}$ and $\phi^2_{00j}$) and variability in rates of change ($\tau^2_{10}$ and $\phi^2_{10}_{00j}$). To elaborate,
+
+At level one:
+
+- The level one trajectory for school $i$ in district $j$ is assumed to be linear, with intercept $\pi_{0ij}$ and slope (growth rate) $\pi_{1ij}$ 
+- $\epsilon_{tij}$ captures the deviation between the true growth trajectory and the observed values (`enrolments`)
+
+At level two:
+
+- $\beta_{00}$ represents the true intercept and $\beta_{10}$ represents the true mean slope for all school $i$
+- The random effects $u_{0ij}$ and $u_{1ij}$ captures the deviation between school $i$'s true growth trajectory and the mean intercept for and slope for school $i$
+  - The deviations in intercept and slope at level two are allowed to be correlated through the covariance parameter $\tau_{01}$
+  
+At level three:
+
+- $\gamma_{000}$ is the true mean intercept while $\gamma_{100}$ is the true mean yearly growth rate for over all schools
+- $r_{00j}$ and $r_{10j}$ captures the deviation between school $i$ true overall growth trajectory and population mean intercept and slope
+
+In combining the levels, the full composite model may be obtained:
+
+$$\begin{aligned}
+  Y_{tij} &= \pi_{0ij} + \pi_{1ij}year0_{tij} + \epsilon_{tij} \\
+          &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year0_{tij} +  \epsilon_{tij} \\
+          &= (\gamma_{000} + r_{00j} + u_{0ij})  + (\gamma_{100} + r_{10j} + u_{1ij})year0_{tij} + \epsilon_{tij} \\
+          &= [\gamma_{000} + \gamma_{100}year0_{tij}] + [r_{00j} + u_{0ij} + \epsilon_{tij} + (r_{10j} + u_{1ij})year0_{tij}]
+  
+\end{aligned}$$
+
+With, $\epsilon_{ijk} \sim N(0, \sigma^2)$,
+
+$$\left( \begin{matrix} u_{0j} \\ u_{1j} \end{matrix} \right) 
+  \sim N 
+  \left( 
+    \begin{matrix} 0 \\ 0 \end{matrix} 
+    \begin{matrix} , \end{matrix}
+    \begin{matrix} \tau^2_{00} & \tau_{01} \\ \tau_{01} & \tau^{2}_{10} \end{matrix}
+  \right)$$
+  
+$$\left( \begin{matrix} r_{00j} \\ r_{10j} \end{matrix} \right) 
+  \sim N 
+  \left( 
+    \begin{matrix} 0 \\ 0 \end{matrix} 
+    \begin{matrix} , \end{matrix}
+    \begin{matrix} \phi^2_{00} &  \\ \phi_{01} & \phi^{2}_{10} \end{matrix}
+  \right)$$
+
+
+### 5. Dealing with boundary issues, if any
+
+- The multilevel models may encounter boundary constraint, usually at the unconditional growth models, when random slopes are introduced at level 2 and three
+
+- This singular fit error occurs as correlation coefficients between two error terms are at the 'boundary' of the allowable values $[1,1]$. 
+
+- In this report, the error is an indication of overfitting of the model (@glmm-faq) -- That is, the random effects structure proves to be too complex to be supported by the data. 
+
+- Naturally, this suggests that the model requires re-parameterisation by altering to feature different parameters. 
+
+- This report considers simplifying the model by removing level three error terms ($r_{10j}$); which effectively removes two parameters 
+  (1) Variance for $r_{10j}$ and
+  (2) Correlation between $r_{01j}$ and $r_{10j}$
+  
+- With respect to the unconditional growth model, the model is simplified by setting the error term $r_{10}j = 0$ (and therefore $r_{10} = 0$) at level three:
+
+$$\beta_{00j} = \gamma_{000} + r_{00j} \\ \beta_{10j} = \gamma_{100}$$
+ 
+- This implies that the unconditional growth model will error assumption at level three will turn into a univariate (as opposed to a multivariate) normal distribution.
+
+- Furthermore, this will also imply that level-three (*e.g.*) clusters will be associated with the same growth rate; In other words, each cluster will have the same rate of change in enrolments for each year
+
+- As will be discussed, removing these parameters will have inconsiderable impact on the fixed effects, which remained rather similar
+
+- Therefore, the benefit of this approach is that it will lead to a more parsimonious model that is not over-fitted and free from any boundary constraints.
+
+
+
+### 6. Adding fixed fixed effects and comparing potential models with criterion-based approach
+
+#### Adding `sector` and `unit` as fixed effects
+
+- At this point, the model only has a dedicated time variable that makes the multilevel longitudinal, with no other predictors added.
+
+- In general, there are two types of predictors which may be added to the longitudinal model
+  (1) Time varying (level 1): predictors that are associated with specific measurement of time
+  (2) Time invariant (level 2 or higher): Predictors associated with schools or clusters measured only at one point in time
+
+- With reference to Table \@ref(tab:data-description), this report will consider school-specific and subject-specific variables as there are no cluster-specific (district or postcode information) variables
+  - To be specific, two time-invariant predictors (`sector` and `unit`) will be added to the model as fixed effects
+
+- To be noted, these categorical variables will not be added as random effects as there is not enough random-effect levels (*e.g.* blocks) for these predictors. As a rule of thumb, there should be more than 5 or 6 levels at a minimum (@glmm-faq)
+
+
+#### Forward Stepwise Approach to select the best model
+
+```{r, fig.align = "center"}
+knitr::include_graphics(here::here("images/fixed-effects.png"))
+```
+
+
+- In adding `sector` and `unit` into the model, there will be a handful of potential models (*e.g.* include three-way interactions, two-way interactions etc.)
+
+- This report considers a forward stepwise approach, where the largest possible model (all possible combinations of fixed effects) will be fitted, before removing the fixed effects one by one.
+
+- The likelihood-based method (AIC) will be then be recorded for each model.
+  - *Note*: Models will be fitted with maximum likelihood estimates rather than the default restricted maximum likelihood estimates (REML) as REML will generally lead to erroneous results as the fixed effects change (@faraway2016extending)
+  
+- The model with the lowest AIC will be deemed the "best" model, based on the fixed effects.
+
+
+### 7. Test random effects using parametric bootstrap
+
+- The parametric bootstrap will be utilised to examine if simplified (smaller) version of model (with fewer random effects) is preferred. 
+
+- This involves removing the random slope ($r_{10j}$) in the larger (proposed) model to create the smaller model.
+  - Removing $r_{10j}$ is equivalent to setting $\phi_{01} = 0$ and $\phi_{10} = 0$
+  
+- In other words, the parametric bootstrap tests if the variance of a random effect $r_{10j}$, is in fact 0. 
+
+- The parametric bootstrap better approximates the correct $p$-value for the corresponding likelihood ratio test by simulating under the null hypothesis, especially when the actual Likelihood ratio test statistic is at the vicinity of the critical value of the (wrong) reference distribution.
+  - The standard $$\chi^2$$ asymptotic are proven to be inappropriate as it produces a 'too conservative' test, where the p-values are usually too large and not reject enough (@faraway2016extending).
+
+#### Process 
+
+In conducting the parametric bootstrap involving variance terms at the boundary, the null and alternative hypothesis can be written as:
+$$H_0: \phi^2_{00} = \phi_{01} \ne 0 \\ H_A: \phi^2_{00} = \phi_{01} = 0 $$
+
+(1) Begin by fitting both (full and smaller) models to the actual data with maximum likelihood estimates to obtain the actual likelihood ratio test statistic ($2 \times logL(\text{full model}) - logL(\text{reduced model})$). This will be called the "actual (observed) likelihood ratio test statistic".
+
+(2) Using the smaller model, obtain estimated fixed effects & variance components (**parametric** portion)
+
+(3) Use estimated fixed effects and variance components to generate pseudo-data from the null model -- *i.e.* regenerate a new set of response (log(`enrolments`)) with its associated fixed effects for each observation (**bootstrap** portion)
+
+(4) Fit both smaller and reduced model to the new pseudo-data
+
+(5) Compute likelihood ratio test statistic comparing both models
+
+(6) Repeat steps 2-4 for a large number of times (this report simulates $B = 1,000$ bootstrap samples)
+
+(7) The estimated $p$-value is computed by finding the proportion of likelihood ratio test statistic that exceeds the actual (observed) value in step (1). That is, the chance of observing the large (small) actual likelihood test statistic or check if the large (small) actual test statistic was a rare occurrence.
+
+**Note:**: Code is provided by fabians (@bootstrapANOVA); Some modifications were made to the original code to be aligned with the analysis.
+
+In conducting the parametric bootstrap, a histogram of the likelihood ratio test statistic will then be implemented to visualise the results (can be compared with a $\chi^2$-distribution with 2 degrees of freedom). If the null hypothesis is rejected at the 5% level (*i.e.* p-value < 0.05), the full model will be selected.
+
+### 8. Parametric bootstrap to conduct Confidence interval
+
+With our final model, confidence intervals can be constructed for the parameters; This can be done via the `confint(method = "boot")` function. However, it is always better to get a more intuitive understanding of what the function is doing under the hood.
+
+(1) Simulate data from the proposed model  
+
+(2) Refit the model using the new responses from the simulated data and estimate the parameters  
+
+(3) Repeat steps 1 and 2 for a larger number of times, storing the results each time  
+
+(4) Use quantiles of bootstrapped estimates to compute the estimated intervals  
+
+- Like any other confidence interval, the output can be interpreted as -- if the procedure was repeated many times over, the true value will lie within the interval 95% of the time. 
+
+- This confidence interval can be used to reinforce the idea that the larger model is better by checking if the variance parameters does not include 0, suggesting that the random effects are significant at the 5% level.
+
+### 9. Interpreting the final model
+
+
+
+### 10. Model Diagnostics
+
+- QQ plot
+- Fitted vs residuals to check for heteroscedasticity
+
+## Notes on Multilevel model
+
+- Different optimisers are used, no change in interpretation, only more computationally intensive (@glmm-faq). In most cases, "bobyqa" optimiser is used.
 
 
 # Acknowledgement
