@@ -672,8 +672,7 @@ mathsci_all %>%
   ggplot() + 
   # Scatter plot
   geom_point(aes(x = year_11_enrolments,
-                 y = year_12_enrolments,
-                 colour = subject),
+                 y = year_12_enrolments),
              alpha = 0.3,
              colour = "grey30") +
   # Plot 45° line 
