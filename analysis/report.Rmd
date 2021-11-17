@@ -16,7 +16,7 @@ link-citations: yes
 ---
 
 ```{r report-setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 7, fig.width = 9, fig.align = "center")
 ```
 
 ```{r}
@@ -565,6 +565,12 @@ Using the multilevel model allows for simultaneous modelling of both intra-schoo
 
 In general, multilevel models takes on the general form: Repeated measures (level 1) nested within individuals (level 2) and possibly individuals nested within some higher-level clusters (level 3). With respect to the data, level 1 relates to a single measure in time, level 2 relates to the individual schools offering the maths and science subjects and level 3 corresponds to the schools nested within districts or postcodes. As our data is nested within schools and possibly in higher-level clusters, the multilevel model is appropriate.
 
+## Limitations
+
+The data is aggregated at the school-level, implying that more granular information such as the student-level is not available. With the new QCE system, students are allowed to choose from a range of courses, and not all will pursue a mathematics and science pathway. This serves as a disadvantage as information such as proportions cannot be computed. Ideally, the number of students pursuing some STEM programs may be extracted, such that the proportion of students who are enrolled in a particular STEM subject **and** is pursuing a STEM career pathway can be computed.
+
+Some subjects (*e.g.* Essential Mathematics and Psychology) are newly offered in the new QCE system. This insinuates that there are only observations spanning from 2020 to 2022 for these subjects. Although the multilevel model is efficient in using the available data (even without complete observations), it has its own drawbacks, which will be discussed in the models of each subject.
+
 ## Methodology (Building the multilevel model)
 
 As aforementioned, the objective of this report is to predict enrolments in light of the new QCE system.
@@ -839,29 +845,63 @@ Fixed effects are functions of the covariates that accounts for the differences 
 
 With the higher-level variance being 'controlled out' by the fixed effects, the random effects framework allows for heterogeneity to not only be corrected, but explicitly modelled (@bell2015explaining). The random effects expresses the variation between all schools, which assumes that the higher-level entities comes from random draws of a normal distribution -- which the variance is estimated by the model -- and can itself be interpretable and relevant. This implies that random effects induces  a correlation between schools at the same level (*e.g.* schools in the same district).
 
-```{r, child="models/agricultural-practices.Rmd"}
+
+# Prediction for Mathematics Subjects
+
+As the report is constrained to a maximum of 10,000 words, only the enrolments for the four mathematics subjects will be considered. Please refer to [this GitHub](https://github.com/BrendiA/ETC5543-proj) for the predictions for of science subjects.
+
+```{r, child="models/mathematical-methods.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/agricultural-science.Rmd"}
+```{r, child="models/specialist-mathematics.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/aquatic-practices.Rmd"}
+```{r, child="models/essential-mathematics.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/biology.Rmd"}
+```{r, child="models/general-mathematics.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/chemistry.Rmd"}
+# Predictions for Science Subjects
+
+As the report is constrained to a maximum of 10,000 words, only the enrolments for the four mathematics subjects will be considered. Please refer to [this GitHub](https://github.com/BrendiA/ETC5543-proj) for the predictions for the predictions of science subjects.
+
+```{r, child="models/agricultural-practices.Rmd", eval=FALSE}
 ```
 
-```{r, child="models/earth-and-environmental-science.Rmd"}
+```{r, child="models/agricultural-science.Rmd", eval=FALSE}
 ```
 
-```{r, child="models/mathematical-methods.Rmd"}
+```{r, child="models/aquatic-practices.Rmd", eval=FALSE}
 ```
 
-```{r, child="models/specialist-mathematics.Rmd"}
+```{r, child="models/biology.Rmd", eval=FALSE}
 ```
+
+```{r, child="models/chemistry.Rmd", eval=FALSE}
+```
+
+```{r, child="models/earth-and-environmental-science.Rmd", eval=FALSE}
+```
+
+```{r, child="models/marine-science.Rmd", eval=FALSE}
+```
+
+```{r, child="models/physics.Rmd", eval=FALSE}
+```
+
+```{r, child="models/science-in-practice.Rmd", eval=FALSE}
+```
+
+# Conclusion
+
+This report explores the various trends in enrolments in the old and new QCE system. In general, a large increase in enrolments can be seen in the new QCE system, which is attributable to the 2007 prep year cohort leaving the school system, allowing each year (from 2020 onwards) in the new QCE system to have a full cohort.
+
+A multilevel model was built to predict enrolments for year 11 and year 12. Some models showed interesting findings, such as having a large negative correlation with random slope and intercept; hinting that larger schools are matched with a lower change in enrolments across the years. School districts appear to play a large role in predicting enrolments, and most models showed that there were stark differences in enrolments across the different districts.
+
+## Where do we go from here?
+
+This report offers a broad overview of the enrolments in Australia. An advantage of using multilevel model is that both intra-school change (*i.e.* how school enrolments are changing overtime) and interindividual change (*i.e.* Differences in temporal change across schools) may be recorded. Thus, the analysis will shift to creating a (shiny) web application to zoom in at the more granular (*e.g.* single school) statistics and information. The interactive features of the application will allow for a more personalised platform for the different needs of users, from extracting information about a single school to comparing enrolments across the different districts. It will include It also aims to incorporate spatial analysis such as the map of Queensland schools to further scrutinise the enrolment trends in the new QCE system.
 
 # Acknowledgement
 
