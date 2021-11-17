@@ -9,7 +9,7 @@ output:
     number_sections: false
 ---
 
-```{r setup, include=FALSE}
+```{r ess-math-setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
@@ -43,6 +43,7 @@ mathsci_all <- mathsci_all %>%
                 ~ as.factor(.x))) 
 ```
 
+## Essential Mathematics
 
 ```{r}
 ess_math <- mathsci_all %>% 
@@ -54,7 +55,7 @@ ess_math_long <- ess_math %>%
                values_to = "enrolments") 
 ```
 
-# Exploring the dataset with basic linear model for each school
+## Exploring the dataset with basic linear model for each school
 
 ```{r ess-math-eda, fig.cap = "Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for biology subject"}
 
@@ -80,9 +81,9 @@ ess_math_long %>%
 
 As [stated above](#new-subjects), Essential Mathematics is one of the new subject introduced in the QCE system. Thus, there are only observations for three years, spanning from 2020 to 2022, as shown in Figure \@ref(fig:ess-math-eda). The various sizes of schools can be seen in the plot, where schools 589, 631, 753 (bottom-right) have relatively low enrolments as compared to school 40 or school 88 (top-right). School 484 introduced the school in 2020, but discontinued offering the subject since.
 
-# Getting the data ready for modelling
+## Getting the data ready for modelling
 
-## Linearise response variable using log transformation
+### Linearise response variable using log transformation
 
 ```{r}
 p1 <- ggplot(ess_math_long, aes(enrolments)) +
@@ -134,7 +135,7 @@ ess_math_long <- ess_math_long %>%
   mutate(log_enrolments = log(enrolments))
 ```
 
-# Unconditional means model
+## Unconditional means model
 
 ```{r}
 # ----- Fit possible null model
@@ -171,7 +172,7 @@ model0_AIC %>%
 
 Referring back to [step 3](#step-three), three candidate models are fitted, with the AIC shown in Table \@ref(tab:ess-math-init-models). `Model0.2`, corresponding to having schools nested within districts is the best model, with optimised (lowest) AIC and will be used in the subsequent analysis.
 
-## Intraclass correlation ($ICC$)
+### Intraclass correlation ($ICC$)
 
 ```{r}
 # --- Model summary output
@@ -211,7 +212,7 @@ $$\text{Level-three ICC} = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma
 Similarly, it can be inferred that the correlation between enrolments of two randomly selected schools from different districts are 3.64%, where the total variability can be attributed to the difference between districts.
 
 
-# Unconditional Growth model
+## Unconditional Growth model
 
 ```{r}
 # Unconditional growth model
@@ -249,7 +250,7 @@ The unconditional growth model adds the systematic changes over time, the model 
 
 Essential Mathematics was first introduced in 2020, and schools are expected to have 43.9785 ($e^{3.7837}$), on average. Furthermore, enrolments were expected to increase by 5.9937\% ($e^{0.0582092} - 1) \times 100$) every year. The estimated within-school variance decrease by 35.7577\% (0.1140 to 0.0732362), implying that 35.7577\% of the within-school variability can be explained by the linear growth over time.
 
-# Testing fixed effects
+## Testing fixed effects
 
 ```{r}
 model4.0 <- lmer(log_enrolments ~ year20*sector*unit +
@@ -322,7 +323,7 @@ model_anova %>%
 ```
 As detailed in [step 6](#step-six), level-two predictors (`sector` and `unit`) are added to the model. The largest possible model will be fitted, before removing each fixed effect one by one whilst recording the AIC for each model. `model4.0` corresponds to the largest model while `model4.10` is the smallest possible model. The model with the optimal (lowest) AIC is the largest possible model `model4.0`, and will be used in subsequent sections.
 
-# Parametric bootstrap to test random effects
+## Parametric bootstrap to test random effects
 
 ```{r}
 bootstrapAnova <- function(mA, m0, B = 1000){
@@ -427,7 +428,7 @@ The parametric bootstrap is used to approximate the likelihood ratio test statis
 
 The p-value of 25.6\% (Table \@ref(tab:ess-math-bootstrapLRT-tab)) indicates the proportion of times in which the bootstrap test statistic is greater than the observed test statistic. The large estimated $p$-value is 0.256 < 0.05 fails to reject the null hypothesis at the 5% level, indicating that the smaller model (without random slope at level three) is preferred.
 
-# Confidence interval
+## Confidence interval
 
 ```{r}
 # Fit best model with restricted maximum likelihood estimates
@@ -456,13 +457,11 @@ as_tibble(confint_f) %>%
   kable_styling(full_width = FALSE)
 ```
 
-The parametric bootstrap is utilised to construct confidence intervals (as detailed in [step 8](#step-eight)). If the confidence intervals for the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. 
+The parametric bootstrap is utilised to construct confidence intervals (as detailed in [step 8](#step-eight)). If the confidence intervals for the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The 95% confidence interval is shown above (Table \@ref(tab:ess-math-confint)), and the random effects all exclude 0, further reiterating that they are statistically significant at the 5% level. 
 
-The 95% confidence interval is shown above (Table \@ref(tab:ess-math-confint)), and the random effects all exclude 0, further reiterating that they are statistically significant at the 5% level. Some fixed effects such as `unityear_12_enrolments` were insignificant, suggesting that there were no difference between unit 11 and unit 12 units.
+## Interpreting final model
 
-# Interpreting final model
-
-## Fixed effects
+### Fixed effects
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year20_{tij} + \epsilon_{tij}$$
@@ -567,6 +566,7 @@ fit_f <- fit_f %>%
 ```
 
 
+
 ```{r ess-math-fixef, fig.cap = "Fixed effects of the final model for Essential Mathematics"}
 fit_f %>% 
   ggplot(aes(x = completion_year,
@@ -589,7 +589,7 @@ fit_f %>%
 
 With a three-way interaction, it is easier to visualise the fixed effects (Figure \@ref(fig:ess-math-fixef)). All sectors demonstrated the same trend with units, where unit 11 showed a larger increase in enrolments, on average. This implies that over the years, more students are enrolling in unit 11 than unit 12.
 
-## Random effects
+### Random effects
 
 ```{r}
 # Random effects for schools within districts
@@ -653,9 +653,9 @@ ranef_district_f %>%
              scales = "free_x")
 ```
 
-As the random slopes are removed, all districts are predicted to have the same increase in enrolments over the years; And as was discussed previously, this was a reasonable assumption or an otherwise perfect correlation with random slope and intercept will be fitted. Figure \@ref(fig:ess-math-district-ranef) demonstrates that schools in Goal Coast has the largest enrolments while Mackay have the lowest enrolments in Biology subject, on average.
+As the random slopes are removed, all districts are predicted to have the same increase in enrolments over the years; And as was discussed previously, this was a reasonable assumption or an otherwise perfect correlation with random slope and intercept will be fitted. Figure \@ref(fig:ess-math-district-ranef) demonstrates that schools in Gold Coast has the largest enrolments while Mackay have the lowest enrolments in Essential Mathematics subject, on average.
 
-## Predictions
+### Predictions
 
 ```{r ess-math-pred, fig.cap = "Model predictions for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments
@@ -677,31 +677,6 @@ ess_math_long %>%
 ```
 
 Figure \@ref(fig:ess-math-pred) above shows the predictions for 20 randomly selected schools.
-
-# Model Diagnostics
-
-```{r}
-# qqplot
-as_tibble(ranef(model_f)) %>% 
-  ggplot(aes(sample = condval)) +
-  geom_qq() +
-  geom_qq_line(colour = "steelblue") +
-  facet_wrap(~ term,
-             scales = "free")
-```
-
-```{r}
-# Residual vs. fitted plot
-broom.mixed::augment(model_f) %>% 
-  ggplot() +
-  geom_point(aes(x = .fitted,
-                 y = .resid),
-             alpha = 0.2) +
-  geom_hline(yintercept = 0,
-             colour = "red")
-```
-
-
 
 
 

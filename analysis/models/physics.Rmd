@@ -450,7 +450,7 @@ confint_f <- confint(model_f,
 save(confint_f, file = here::here("data/confint/phys.rda"))
 ```
 
-```{r bio-confint}
+```{r phys-confint}
 load(here::here("data/confint/phys.rda"))
 
 as_tibble(confint_f) %>% 
@@ -460,8 +460,7 @@ as_tibble(confint_f) %>%
   kable_styling(full_width = FALSE)
 ```
 
-*to edit: reference to table*
-The parametric bootstrap is utilised to construct confidence intervals (as detailed in [step 8](#step-eight)). If the confidence intervals for the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level.  The 95% confidence interval is shown above (Table \@ref(tab:bio-confint)), and the random effects all exclude 0, further reiterating that they are statistically significant at the 5% level.
+The parametric bootstrap is utilised to construct confidence intervals (as detailed in [step 8](#step-eight)). If the confidence intervals for the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level.  The 95% confidence interval is shown above (Table \@ref(tab:phys-confint)), and the random effects all exclude 0, further reiterating that they are statistically significant at the 5% level.
 
 ## Interpreting final model
 
@@ -577,7 +576,7 @@ cat(" Number of Level Two groups = ",
 Using the model output above (see [step 9](##step-nine) for detailed explanation on fixed effects), the estimated increase in mean enrolments for government schools is 0.1082\% ($e^{0.0131073 - 0.0120259} - 1) \times  100$), which is 1.1954\% ($(e^{0.01626900} - 1) \times 100$) less than that of catholic schools. On the other hand, the mean enrolments for independent schools are estimated to increase by 3.2399\% ($(e^{0.0131073 + 0.0187781} - 1) \times  100$) each year, which is 1.8956\% ($(e^{0.0187781} - 1) \times  100$) more than catholic schools.
 
 
-```{r phys-fixef, fig.cap = "Fixed effects of the final model for Biology"}
+```{r phys-fixef, fig.cap = "Fixed effects of the final model for Physics"}
 fit_f %>% 
   ggplot(aes(x = completion_year,
              y = fit,

@@ -493,7 +493,7 @@ confint_f <- confint(model_f,
 save(confint_f, file = here::here("data/confint/agri-prac.rda"))
 ```
 
-```{r}
+```{r agri-prac-confint}
 load(here::here("data/confint/agri-prac.rda"))
 
 as_tibble(confint_f) %>% 
@@ -503,7 +503,9 @@ as_tibble(confint_f) %>%
   kable_styling(full_width = FALSE)
 ```
 
-The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0 (Table \@ref(tab:agri-prac-confint)), indicating that they're different from 0 in the population (*i.e.* statistically significant).
+
+## Interpreting the final model
 
 ### Composite model
 
@@ -520,6 +522,7 @@ Therefore, the composite model can be written as
 $$\begin{aligned}Y_{tij} =\ &  \pi_{0ij} + \pi_{1ij}year15_{tij} + \epsilon_{tij} \\ =\ & (\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + u_{1ij})year15_{tij} + \epsilon_{tij} \\ =\ & \left[\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + \beta_{10j}year15_{tij} + \beta_{11j}sector_{ij}year15_{tij} + \beta_{12j}unit_{ij}year15_{tij} \right] \left[u_{0ij} + u_{1ij} + \epsilon_{tij} \right] \end{aligned}$$
 
 ### Fixed effects
+
 ```{r}
 # Extract fixed effects for final model
 fixef_f <- fixef(model_f)

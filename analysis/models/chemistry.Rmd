@@ -217,7 +217,7 @@ The **level-three ICC** refers to the correlation between different schools $i$ 
 $$\text{Level-three ICC} = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1077}{(0.5888 + 0.1077 + 0.2094)} = 0.1189$$
 Similarly, this can be conceptualised as the correlation between enrolments of two randomly selected schools from the same district -- *i.e.* 11.70% of the total variability is due to the difference between districts.
 
-# Unconditional growth model
+## Unconditional growth model
 
 ```{r}
 # Unconditional growth model
@@ -476,7 +476,7 @@ The parametric bootstrap is utilised to construct confidence intervals (as detai
 
 The 95% confidence interval is shown above (Table \@ref(tab:chem-confint)), and the random effects all exclude 0, further reiterating that they are statistically significant at the 5% level. 
 
-## Interpreting final model
+## Interpreting the final model
 
 ### Composite model
 

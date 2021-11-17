@@ -111,7 +111,7 @@ p2 <- ggplot(psych_long, aes(log(enrolments))) +
 p1 / p2
 ```
 
-The enrolments were right skewed, which is likely to be attributed to the various school sizes (as seen in Figure \@ref(fig:ess-math-eda)). A log transformation was implemented to the response variable (*i.e.* `enrolments`) to allow the the multilevel model to better capture the enrolment patterns. 
+The enrolments were right skewed, which is likely to be attributed to the various school sizes (as seen in Figure \@ref(fig:psych-eda)). A log transformation was implemented to the response variable (*i.e.* `enrolments`) to allow the the multilevel model to better capture the enrolment patterns. 
 
 ```{r}
 # ----- Cleaning script
@@ -169,7 +169,7 @@ model0_AIC %>%
                 bootstrap_options = c("hovered", "striped"))
 ```
 
-Referring back to [step 3](#step-three), three candidate models are fitted, with the AIC shown in Table \@ref(tab:ess-math-init-models). `Model0.2`, corresponding to having schools nested within districts is the best model, with optimised (lowest) AIC and will be used in the subsequent analysis.
+Referring back to [step 3](#step-three), three candidate models are fitted, with the AIC shown in Table \@ref(tab:psych-init-models). `Model0.2`, corresponding to having schools nested within districts is the best model, with optimised (lowest) AIC and will be used in the subsequent analysis.
 
 ### Intraclass correlation ($ICC$)
 
@@ -397,18 +397,17 @@ save(bootstrapLRT, file = here::here("data/bootstrapLRT/psych.rda"))
 ```
 
 
-```{r}
+```{r psych-bootstrapLRT-tab}
 # Load bootstrap likelihood ratio test output
-load(here::here("data/bootstrapLRT/psych-model5.0-vs-model5.1.rda"))
+load(here::here("data/bootstrapLRT/psych.rda"))
 
 as_tibble(bootstrapLRT) %>% 
-  kable() %>% 
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
   kable_styling(full_width = FALSE)
 ```
 
-- Overwhelming statistical evidence ($\chi^2$ = 0.0000, $p$-value = 0.981) supporting the smaller model.
 
-```{r}
+```{r psych-bootstrapLRT-fig, fig.cap = "Histogram of likelihood ratio test statistic, with a red vertical line indicating the likelihood ratio test statistic for the actual model"}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -431,6 +430,10 @@ ggplot(nullLRT.1) +
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
 
+The parametric bootstrap is used to approximate the likelihood ratio test statistic to produce a more accurate p-value by simulating data under the null hypothesis (detailed explanation can be found in [step 7](#step-seven). Figure \@ref(fig:psych-bootstrapLRT-fig) displays the likelihood ratio test statistic from the null distribution, with the red line indicates the likelihood ratio test statistic using the actual data. 
+
+The p-value indicates the proportion of times in which the bootstrap test statistic is greater than the observed test statistic. The low estimated $p$-value is 0.829 < 0.05 (Table \@ref(tab:psych-bootstrapLRT-tab)) fails to reject the null hypothesis at the 5% level, indicating that the smaller model (excluding random slope at level three) is preferred.
+
 ## Confidence interval
 
 ```{r}
@@ -439,21 +442,33 @@ model_f <- lmer(log_enrolments ~ year20 + sector + unit + + year20:unit + sector
                (year20 | qcaa_district:qcaa_school_id) +  
                (1 | qcaa_district),
               REML = TRUE,
-              control = lmerControl(optimizer = "bobyqa"),
               data = psych_long)
 ```
 
 ```{r, eval=FALSE}
-confint(model_f,
+confint_f <- confint(model_f,
         method = "boot",
         oldNames = FALSE)
+
+save(confint_f, file = here::here("data/confint/psych.rda"))
 ```
+
+```{r}
+load(here::here("data/confint/psych.rda"))
+
+as_tibble(confint_f) %>% 
+  mutate(var = rownames(confint_f),
+         .before = `2.5 %`) %>% 
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
 
 ## Interpreting final model
 
 
 ### Composite model 
-
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year20_{tij} + \epsilon_{tij}$$
@@ -550,7 +565,30 @@ fit_f <- fit_f %>%
            remove = FALSE) # Keep old variable for grouping in plot
 ```
 
+```{r, eval=FALSE, echo=TRUE}
+summary(model_f)
+```
+
 ```{r}
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model_f)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model_f))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model_f)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model_f)$ngrps[2])
+```
+
+```{r psych-fixef, fig.cap = "Fixed effects of the final model for Agricultural Practices subject"}
 fit_f %>% 
   ggplot(aes(x = completion_year,
              y = fit,
@@ -569,6 +607,8 @@ fit_f %>%
   scale_x_continuous(breaks = seq(2020, 2025, by = 1),
                      labels = seq(2020, 2025, by = 1)) 
 ```
+
+As the final model does not have a random slope at level 3, schools across sector are assumed to have the same slope in the fixed effects, but at different intercept (baseline). As seen in Figure \@ref(fig:psych-fixef), unit 12 are expected to be more than unit 11 in the later years, suggesting that students may be completing the year 11 syllabus in year 10, before re-enrolling in year 12. It appears that government schools are estimated to have the highest enrolment in Psychology, with independent schools having the least enrolments, on average.
 
 ### Random effects
 
@@ -617,7 +657,9 @@ ranef_school_f %>%
              scales = "free_x")
 ```
 
-```{r}
+As shown in the model output and in Figure \@ref(fig:psych-school-ranef), there was little correlation (-0.36) between the random intercept and slope. Schools with appear to decrease or increase in enrolments at different rates; This may be attributed to the fact that the data only consists of observations for three years and there is not enough data to evaluate the enrolment patterns in schools.
+
+```{r psych-district-ranef, fig.cap = "Model predictions for 20 randomly selected schools"}
 # Plot random effects for between districts
 ranef_district_f %>% 
 # Reorder group based on by conditional means
@@ -631,9 +673,11 @@ ranef_district_f %>%
   labs(title = "Intercept")
 ```
 
+As the random slopes are removed, all districts are predicted to have the same increase in enrolments over the years; And as was discussed previously, this was a reasonable assumption or an otherwise perfect correlation with random slope and intercept will be fitted. Figure \@ref(fig:psych-district-ranef) demonstrates that schools in Brisbane Central has the largest enrolments while Brisbane South have the lowest enrolments in this subject, on average.
+
 ### Predictions
 
-```{r}
+```{r psych-pred, fig.cap = "Model predictions for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments
 set.seed(1782)
 
@@ -653,5 +697,5 @@ psych_long %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-
+Figure \@ref(fig:psych-pred) above shows the predictions for 20 randomly selected schools.
 

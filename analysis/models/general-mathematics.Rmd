@@ -9,7 +9,7 @@ output:
     number_sections: false
 ---
 
-```{r setup, include=FALSE}
+```{r gen-math-setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
@@ -43,7 +43,7 @@ mathsci_all <- mathsci_all %>%
                 ~ as.factor(.x))) 
 ``` 
 
-# The dataset
+# General Mathematics
 
 ```{r}
 gen_math <- mathsci_all %>% 
@@ -55,9 +55,9 @@ gen_math_long <- gen_math %>%
                values_to = "enrolments") 
 ```
 
-# Exploring the dataset with basic linear model
+## Exploring the dataset with basic linear model
 
-```{r gen-math-eda, fig.cap="Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for Specialist Mathematics subject"}
+```{r gen-math-eda, fig.cap="Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for General Mathematics subject"}
 
 set.seed(9254)
 
@@ -76,15 +76,15 @@ gen_math_long %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-With reference to the [first step](#step-one), Figure \@ref(fig:spec-math-eda) fits a linear model for enrolments for a random sample of 20 schools. Various school sizes can be seen, school 633 and 634 (bottom-right) appears to have approximately 10 enrolments per cohort, while school 25 and 34 have enrolments above 200 per cohort. Some schools showed relatively large increase in enrolments over the years, while some showed a decrease (*e.g.* school 41).
+With reference to the [first step](#step-one), Figure \@ref(fig:gen-math-eda) fits a linear model for enrolments for a random sample of 20 schools. Various school sizes can be seen, school 633 and 634 (bottom-right) appears to have approximately 10 enrolments per cohort, while school 25 and 34 have enrolments above 200 per cohort. Some schools showed relatively large increase in enrolments over the years, while some showed a decrease (*e.g.* school 41).
 
-# Getting the data ready for modelling
+## Getting the data ready for modelling
 
-## Removing zero enrolments
+### Removing zero enrolments
 
 All zero enrolments in a given year will be removed for modelling. As aforementioned, most of the zero enrolments in year 11 (refer to Figure \@ref(fig:year-11-enrolments-all)) were attributed to the 2007 prep year cohort while zero enrolments in year 12 relates to the first year in which a school introduces the subject. Other zero enrolments mostly relates to smaller schools with little to no enrolments in the subject for a given year. These zero enrolments will be removed for modelling purposes.
 
-## Linearise response variable using log transformation
+### Linearise response variable using log transformation
 
 ```{r}
 p1 <- gen_math_long %>%
@@ -138,7 +138,7 @@ gen_math_long <- gen_math_long %>%
   mutate(log_enrolments = log(enrolments))
 ```
 
-# Unconditional means model
+## Unconditional means model
 
 ```{r}
 # ----- Fit possible null model
@@ -172,9 +172,9 @@ model0_AIC %>%
                 bootstrap_options = c("hovered", "striped"))
 ```
 
-As per [Step 3](#step-three), the three potential models are fitted, with the AIC shown in Table \@ref(tab:spec-math-init-models). Based on the AIC, `model0.2`, corresponding the schools nested within districts is the best model and will be used in the subsequent analysis. 
+As per [Step 3](#step-three), the three potential models are fitted, with the AIC shown in Table \@ref(tab:gen-math-init-models). Based on the AIC, `model0.2`, corresponding the schools nested within districts is the best model and will be used in the subsequent analysis. 
 
-## Intraclass correlation ($ICC$)
+### Intraclass correlation ($ICC$)
 
 ```{r}
 # --- Model summary output
@@ -211,7 +211,7 @@ The **level-three ICC** refers to the correlation between different schools $i$ 
 $$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1077}{(0.5888 + 0.1077 + 0.2094)} = 0.0614$$
 Similarly, this can be conceptualised as the correlation between enrolments of two randomly selected schools from the same district -- *i.e.* 6.14% of the total variability is due to the difference between districts.
 
-# Unconditional Growth model
+## Unconditional Growth model
 
 ```{r}
 # Unconditional growth model
@@ -302,7 +302,7 @@ $$\begin{aligned}
              \left[r_{00j} + u_{0ij} + u_{1ij}year92_{tij} + \epsilon_{tij} \right]
 \end{aligned}$$
 
-# Testing fixed effects
+## Testing fixed effects
 
 ```{r}
 model4.0 <- lmer(log_enrolments ~ year92*sector*unit +
@@ -379,7 +379,7 @@ model_anova %>%
 As highlighted in [step 6](#step-six), `sector` and `unit` will be added as predictors to the model. The largest possible model will be fitted, before removing fixed effects one by one while recording the AIC for each model. In this case, `model4.0` corresponds to the largest possible model while `model4.10` is the smallest possible model. The model with the optimal (lowest) AIC is `model4.4` (Table \@ref(tab:gen-math-test-fixef)). The next section will test the selected model's random effects to build the final model.
 
 
-# Parametric bootstrap to test random effects
+## Parametric bootstrap to test random effects
 
 This step will not be undertaken, as the random slope will not be included at level three as a boundary constraint was found in the unconditional growth model, indicating that the model will be overfitted if random slopes were included at level three.
 
@@ -475,7 +475,7 @@ ggplot(nullLRT.1) +
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
 
-# Confidence interval
+## Confidence interval
 
 ```{r}
 # Fit best model with restricted maximum likelihood estimates
@@ -507,9 +507,9 @@ as_tibble(confint_f) %>%
 
 The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
 
-# Interpreting final model
+## Interpreting final model
 
-## Composite model
+### Composite model
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
@@ -530,7 +530,7 @@ $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
 
 The composite model can therefore be written as:
 $$\begin{aligned} Y_{tij} =\ & \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\ =\ & (\beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + \beta_{13j}sector_{ij}unit_{ij} + u_{1ij})year92_{tij} + \epsilon_{tij} \\ =\ & \left[\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + (\gamma_{030} + r_{03j})sector_{ij}unit_{ij} + u_{0ij} \right] + \\ & \left[\gamma_{100} + \gamma_{110}sector_{ij} + \gamma_{120}unit_{ij} + \gamma_{130}sector_{ij}unit_{ij} + u_{1ij}\right]year92_{tij} + \epsilon_{tij} \\ =\ & \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{030}sector_{ij}unit_{ij} + \gamma_{100}year92_{tij} + \gamma_{110}year92_{tij}sector_{ij} + \gamma_{120}unit_{ij}year92_{tij} + \gamma_{130}sector_{ij}unit_{ij}year92_{tij} \right] + \\ & \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{03j}sector_{ij}unit_{ij} + u_{0ij]} + u_{1ij}year92_{tij} + \epsilon_{tij} \right]  \end{aligned}$$
-## Fixed effects
+### Fixed effects
 
 ```{r}
 # Extract fixed effects for final model
@@ -612,7 +612,7 @@ fit_f %>%
 With a three-way interaction, it is easier to visualise the fixed effects (Figure \@ref(fig:gen-math-fixef)). When the subject was first introduced in 1992, independent schools appears to have the least enrolments, on average. This low enrolment number was matched with a relatively large increase in enrolments per year, as seen by the slope. Although government schools have high enrolments initially, the rate of change in enrolments over the years increased relatively slow compared to the other sectors. Year 11 and year 12 units have similar enrolment numbers, on average.
 
 
-## Random effects
+### Random effects
 
 ```{r}
 # Random effects for schools within districts
@@ -676,7 +676,7 @@ ranef_district_f %>%
              scales = "free_x")
 ```
 
-## Predictions
+### Predictions
 
 ```{r}
 # Predictions for 20 randomly selected schools for unit 11 enrolments
