@@ -54,44 +54,78 @@ ess_math_long <- ess_math %>%
                values_to = "enrolments") 
 ```
 
+# Exploring the dataset with basic linear model for each school
+
+```{r ess-math-eda, fig.cap = "Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for biology subject"}
+
+# Fit a linear model for 20 random sampled schools
+set.seed(7367)
+
+ess_math_long %>% 
+  filter(qcaa_school_id %in% sample(qcaa_school_id, size = 20),
+         enrolments > 0) %>% 
+  ggplot(aes(x = completion_year,
+             y = enrolments)) +
+  geom_point() +
+  stat_smooth(method = "lm",
+              colour = "orange") +
+  facet_wrap(~ qcaa_school_id) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(x = "Completion year",
+       y = "Enrolments",
+       title = "Linear fit for 20 randomly selected schools")
+```
+
+As [stated above](#new-subjects), Essential Mathematics is one of the new subject introduced in the QCE system. Thus, there are only observations for three years, spanning from 2020 to 2022, as shown in Figure \@ref(fig:ess-math-eda). The various sizes of schools can be seen in the plot, where schools 589, 631, 753 (bottom-right) have relatively low enrolments as compared to school 40 or school 88 (top-right). School 484 introduced the school in 2020, but discontinued offering the subject since.
 
 # Getting the data ready for modelling
 
 ## Linearise response variable using log transformation
 
 ```{r}
-p1 <- ess_math_long %>%
-  ggplot(aes(x = enrolments)) +
-  geom_histogram() +
-  labs(title = "Before log transformation")
+p1 <- ggplot(ess_math_long, aes(enrolments)) +
+      geom_histogram(binwidth = 15,
+                     fill = "white",
+                     colour = "black") +
+      geom_density(aes(y = 15 * ..count..),
+                   fill = "steelblue",
+                   alpha = 0.4) +
+    labs(title = "Before log transformation",
+         x = "Enrolments",
+         y = "Density")
 
-p2 <- ess_math_long %>%
-  ggplot(aes(x = log(enrolments))) +
-  geom_histogram() +
-  labs(title = "After log transformation")
+p2 <- ggplot(ess_math_long, aes(log(enrolments))) +
+      geom_histogram(binwidth = 0.3,
+                     fill = "white",
+                     colour = "black") +
+      geom_density(aes(y= 0.3 * ..count..),
+                   fill = "steelblue",
+                   alpha = 0.4) +
+  labs(title = "After log transformation",
+       x = "Log Enrolments",
+       y = "Density")
 
 p1 / p2
-  
-
-# Time plot after log transformation
-# 20 randomly selected schools
-set.seed(1280)
-ess_math_long %>% 
-  filter(unit == "year_11_enrolments",
-         completion_year != 2019,
-         enrolments != 0,
-         qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
-  ggplot(aes(x = completion_year,
-             y = log(enrolments),
-             group = qcaa_school_id)) +
-  geom_line() +
-  facet_wrap(~ qcaa_school_id)
 ```
 
+The enrolments were right skewed, which is likely to be attributed to the various school sizes (as seen in Figure \@ref(fig:ess-math-eda)). A log transformation was implemented to the response variable (*i.e.* `enrolments`) to allow the the multilevel model to better capture the enrolment patterns. 
+
 ```{r}
-# Rescale `completion_year` variable
-ess_math_long <- ess_math_long %>%
-  # Remove 22 observations with 0 enrolments
+# ----- Cleaning script
+
+ess_math <- ess_math %>% 
+  # Remove graduating cohort 2019 
+  filter(completion_year != 2019) %>% 
+  # Remove schools that offer subject in one of Year 11 or Year 12 only
+  filter(year_12_enrolments != 0,
+         year_11_enrolments != 0)
+
+ess_math_long <- ess_math_long %>% 
+  # Remove graduating cohort 2019 
+  filter(completion_year != 2019) %>% 
+  # Remove schools that offer subject in one of Year 11 or Year 12 only
   filter(enrolments != 0) %>% 
   # Recentre year
   mutate(year20 = completion_year - min(completion_year),
@@ -118,7 +152,7 @@ model0.2 <- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
                  data = ess_math_long)
 ```
 
-```{r}
+```{r ess-math-init-models}
 # Obtain AIC for each null model
 model0_AIC <- AIC(model0.0, model0.1, model0.2) 
 
@@ -127,25 +161,56 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
                           "Model0.1: Schools nested within postcodes",
                           "Model0.2: Schools nested within districts")
 
+# Show AIC for each candidate model
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable() %>% 
+  kable(caption = "AIC values for all candidate models for Essential Mathematics") %>% 
   kable_styling(full_width = FALSE,
                 bootstrap_options = c("hovered", "striped"))
 ```
 
-- According to the AIC, model with schools nested within districts is the best
+Referring back to [step 3](#step-three), three candidate models are fitted, with the AIC shown in Table \@ref(tab:ess-math-init-models). `Model0.2`, corresponding to having schools nested within districts is the best model, with optimised (lowest) AIC and will be used in the subsequent analysis.
 
 ## Intraclass correlation ($ICC$)
 
+```{r}
+# --- Model summary output
 
-The **level-two ICC** is the correlation between a school $i$ from a certain district $j$ in time $t$ and in time $t^*$:
+# Extract variance and correlation component
+vc <- VarCorr(model0.2)
 
-$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{1.1484}{(1.1484 + 0.0477 + 0.1140)} = 0.8766$$
+cat("Random effects:", "\n")
 
-The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific district $j$. 
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
 
-$$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.0477}{(1.1484 + 0.0477 + 0.1140)} = 0.0364$$
+cat("\n","Fixed effects:", "\n")
+# Extract fixed effects coefficient
+coef(summary(model0.2))
+
+# Print grouping structure
+cat("\n",
+    "Number of schools (level-two group) =",
+    summary(model0.2)$ngrps[1], "\n", 
+    "Number of district (level-three group) =",
+    summary(model0.2)$ngrps[2])
+```
+
+This model takes into account 458 schools nested in 13 districts. In a three-level multilevel model, two intraclass correlations can be obtained using the model summary output above:
+
+The **level-two ICC** relates to the correlation between school $i$ from a certain district $k$ in time $t$ and in time $t^*$:
+
+$$\text{Level-two ICC} = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{1.1484}{(1.1484 + 0.0477 + 0.1140)} = 0.8766$$
+
+This can be conceptualised as the correlation between enrolments of two random draws from the same school at two different years. In other words, 87.66% of the total variability is attributable to the differences between schools from the same district rather than changes over time within schools.
+
+The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific school $j$. 
+
+$$\text{Level-three ICC} = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.0477}{(1.1484 + 0.0477 + 0.1140)} = 0.0364$$
+
+Similarly, it can be inferred that the correlation between enrolments of two randomly selected schools from different districts are 3.64%, where the total variability can be attributed to the difference between districts.
+
+
 # Unconditional Growth model
 
 ```{r}
@@ -157,40 +222,32 @@ model1.0 <- lmer(log_enrolments ~ year20 +
                 data = ess_math_long)
 ```
 
-# Adding predictors to the model
-
-## Adding `sector`
-
 ```{r}
-model2.0 <- lmer(log_enrolments ~ year20 + sector + sector*year20 +
-                (year20 | qcaa_district:qcaa_school_id) + 
-                (year20 | qcaa_district),
-                REML = TRUE,
-                data = ess_math_long)
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model1.0)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model1.0))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model1.0)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model1.0)$ngrps[2])
 ```
 
-### Visualising fixed effects
+The unconditional growth model adds the systematic changes over time, the model specification can be found in [step 4](#step-four). This allows for assessing within-school variability which can be attributed to the linear changes over time. Based on the model output:
 
-```{r}
-fixef(model2.0)
-```
+- $\pi_{0ij}$ = 3.7837: Initial status for school $i$ in district $j$ (*i.e.* expected log enrolments when time = 0)
+- $\pi_{1ij}$ = 0.0582: Growth rate for school $i$ in district $j$
+- $\epsilon_{tij}$ = 0.0732: Variance in within-school residuals after accounting for linear growth overtime
 
-
-## Adding `sector` and `unit`
-
-```{r}
-model3.0 <- lmer(log_enrolments ~ year20 + sector + sector:year20 + unit + unit:year20 +
-                (year20 | qcaa_district:qcaa_school_id) + 
-                (year20 | qcaa_district),
-                REML = TRUE,
-                data = ess_math_long)
-```
-
-### Visualising fixed effects
-
-```{r}
-fixef(model3.0)
-```
+Essential Mathematics was first introduced in 2020, and schools are expected to have 43.9785 ($e^{3.7837}$), on average. Furthermore, enrolments were expected to increase by 5.9937\% ($e^{0.0582092} - 1) \times 100$) every year. The estimated within-school variance decrease by 35.7577\% (0.1140 to 0.0732362), implying that 35.7577\% of the within-school variability can be explained by the linear growth over time.
 
 # Testing fixed effects
 
@@ -263,7 +320,7 @@ model_anova %>%
          .before = npar) %>% 
   arrange(AIC)
 ```
-- Based on the AIC, the largest possible model (`model4.0`) is the best
+As detailed in [step 6](#step-six), level-two predictors (`sector` and `unit`) are added to the model. The largest possible model will be fitted, before removing each fixed effect one by one whilst recording the AIC for each model. `model4.0` corresponds to the largest model while `model4.10` is the smallest possible model. The model with the optimal (lowest) AIC is the largest possible model `model4.0`, and will be used in subsequent sections.
 
 # Parametric bootstrap to test random effects
 
@@ -317,7 +374,7 @@ balt <- lmer(log_enrolments ~ year20*sector*unit +
              data = ess_math_long)
 
 # Null model
-bnull <- lmer(log_enrolments ~ year20 + sector + year20:sector + sector:unit + unit + 
+bnull <- lmer(log_enrolments ~ year20*sector*unit + 
                (year20 | qcaa_district:qcaa_school_id) +      
                (1 | qcaa_district),
               REML = FALSE,
@@ -331,21 +388,20 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
                                m0 = bnull, 
                                B = 1000)
 
-save(bootstrapLRT, file = here::here("data/bootstrapLRT/ess-maths-model5.0-vs-model5.1.rda"))
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/ess-math.rda"))
 ```
 
-```{r}
+```{r ess-math-bootstrapLRT-tab}
 # Load bootstrap likelihood ratio test output
-load(here::here("data/bootstrapLRT/ess-maths-model5.0-vs-model5.1.rda"))
+load(here::here("data/bootstrapLRT/ess-math.rda"))
 
 as_tibble(bootstrapLRT) %>% 
-  kable() %>% 
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
   kable_styling(full_width = FALSE)
 ```
 
-- Overwhelming statistical evidence supporting the larger model.
 
-```{r}
+```{r ess-math-bootstrapLRT-plot, fig.cap = "Histogram of likelihood ratio test statistic, with a red vertical line indicating the likelihood ratio test statistic for the actual model"}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -359,12 +415,17 @@ ggplot(nullLRT.1) +
     color = "black",
     fill = "white"
   ) + 
-  geom_vline(xintercept = actual, size = 1) +
+  geom_vline(xintercept = actual, 
+             size = 1,
+             colour = "red") +
   geom_line(aes(x = x, y = y)) +
-  # xlim(c(-.5,10)) +
   labs(y = "Density",
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
+
+The parametric bootstrap is used to approximate the likelihood ratio test statistic to produce a more accurate p-value by simulating data under the null hypothesis (detailed explanation can be found in [step 7](#step-seven). Figure \@ref(fig:ess-math-bootstrapLRT-plot) displays the likelihood ratio test statistic from the null distribution, with the red line representing the likelihood ratio test statistic using the actual data. 
+
+The p-value of 25.6\% (Table \@ref(tab:ess-math-bootstrapLRT-tab)) indicates the proportion of times in which the bootstrap test statistic is greater than the observed test statistic. The large estimated $p$-value is 0.256 < 0.05 fails to reject the null hypothesis at the 5% level, indicating that the smaller model (without random slope at level three) is preferred.
 
 # Confidence interval
 
@@ -372,21 +433,36 @@ ggplot(nullLRT.1) +
 # Fit best model with restricted maximum likelihood estimates
 model_f <- lmer(log_enrolments ~ year20*sector*unit +
                (year20 | qcaa_district:qcaa_school_id) +      
-               (year20 | qcaa_district) ,
+               (1 | qcaa_district) ,
              REML = TRUE,
              data = ess_math_long)
 ```
 
 ```{r, eval=FALSE}
-confint(model_f,
+confint_f <- confint(model_f,
         method = "boot",
         oldNames = FALSE)
+
+save(confint_f, file = here::here("data/confint/ess-math.rda"))
 ```
+
+```{r ess-math-confint}
+load(here::here("data/confint/ess-math.rda"))
+
+as_tibble(confint_f) %>% 
+  mutate(var = rownames(confint_f),
+         .before = `2.5 %`) %>% 
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+The parametric bootstrap is utilised to construct confidence intervals (as detailed in [step 8](#step-eight)). If the confidence intervals for the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. 
+
+The 95% confidence interval is shown above (Table \@ref(tab:ess-math-confint)), and the random effects all exclude 0, further reiterating that they are statistically significant at the 5% level. Some fixed effects such as `unityear_12_enrolments` were insignificant, suggesting that there were no difference between unit 11 and unit 12 units.
 
 # Interpreting final model
 
-
-## Composite model 
+## Fixed effects
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year20_{tij} + \epsilon_{tij}$$
@@ -400,10 +476,10 @@ $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year20_{tij} + \epsilon_{tij}$$
     \beta_{01j} = \gamma_{010} + r_{01j} \\
     \beta_{02j} = \gamma_{020} + r_{02j} \\
     \beta_{03j} = \gamma_{030} + r_{03j} \\
-    \beta_{10j} = \gamma_{100} + r_{10j} \\
-    \beta_{11j} = \gamma_{110} + r_{11j} \\
-    \beta_{12j} = \gamma_{120} + r_{12j} \\ 
-    \beta_{13j} = \gamma_{130} + r_{13j}$$
+    \beta_{10j} = \gamma_{100} \\
+    \beta_{11j} = \gamma_{110} \\
+    \beta_{12j} = \gamma_{120} \\ 
+    \beta_{13j} = \gamma_{130} $$
 
 Therefore, the composite model can be written as
 
@@ -414,17 +490,15 @@ Y_{tij} =\ &\pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
            & (\beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + \beta_{13j}sector_{ij}unit_{ij} + u_{1ij})year20_{tij} + 
            \epsilon_{tij} \\
            
-        =\ & \left[\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + 
-              (\gamma_{030} + r_{03j})sector_{ij}unit_{ij} + u_{0ij} \right] + \\
-            & \left[\gamma_{100} + r_{10j} + (\gamma_{110} + r_{11j})sector_{ij} + (\gamma_{120} + r_{12j})unit_{ij} + 
-              (\gamma_{130} + r_{13j})sector_{ij}unit_{ij} + u_{1ij} \right]year20_{tij} \\
+        =\ & \left[\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} +
+             (\gamma_{030} + r_{03j})sector_{ij}unit_{ij}  + u_{0ij} \right] + \\
+            & \left[\gamma_{100} + \gamma_{110}sector_{ij} + \gamma_{120}unit_{ij} + \gamma_{130}sector_{ij}unit_{ij} + u_{1ij}
+              \right]year20_{tij} + \epsilon_{tij} \\
               
-        =\ & \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} \gamma_{030}sector_{ij}unit_{ij} +
-            \gamma_{100}year20_{tij} + \gamma_{110}sector_{ij}year_{tij} \gamma_{120}unit_{ij}year20_{ij} + 
-             \gamma_{130}sector_{ij}unit_{ij}year20_{tij} \right] \\
-           & \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{03j}sector_{ij}unit_{ij} + r_{10j}year20_{tij} + 
-            r_{11j}sector_{ij}year20_{tij} + r_{12j}unit_{ij}year20_{tij} + r_{13j}sector_{ij}unit_{ij}year20_{tij} +
-             u_{0ij} + u_{1ij}year20_{tij}\right] 
+        =\ & \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{030}sector_{ij}unit_{ij} + 
+             \gamma_{100}year20_{tij} + \gamma_{110}sector_{ij}year_{tij} + \gamma_{120}unit_{ij}year_{tij} +             
+             \gamma_{130}sector_{ij}unit_{ij}year_{tij} \right] \\
+           & \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{03j}sector_{ij}unit_{ij} + u_{0ij} + u_{1ij}year20_{tij} + \epsilon_{tij} \right] 
             
 \end{aligned}$$ 
 
@@ -432,9 +506,9 @@ Y_{tij} =\ &\pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
 # Extract fixed effects for final model
 fixef_f <- fixef(model_f)
 
-# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} \gamma_{030}sector_{ij}unit_{ij} +
-# \gamma_{100}year20_{tij} + \gamma_{110}sector_{ij}year_{tij} \gamma_{120}unit_{ij}year20_{ij} + 
-# \gamma_{130}sector_{ij}unit_{ij}year20_{tij}
+# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{030}sector_{ij}unit_{ij} + 
+# \gamma_{100}year20_{tij} + \gamma_{110}sector_{ij}year_{tij} + \gamma_{120}unit_{ij}year_{tij} +             
+# \gamma_{130}sector_{ij}unit_{ij}year_{tij}
 
 # Catholic (unit 11)
 fit_cat_unit11 <- fixef_f[[1]] + fixef_f[[2]] * c(0:5)
@@ -445,22 +519,21 @@ fit_cat_unit12 <-
 
 # Government (unit 11)
 fit_gov_unit11 <-
-  fixef_f[[1]] + fixef_f[[3]] + fixef_f[[2]] * c(0:5) + fixef_f[[6]] * c(0:5)
+  fixef_f[[1]] + fixef_f[[3]] + fixef_f[[2]] * c(0:5) + fixef_f[[6]] * c(0:5) 
 
 # Government (unit 12)
 fit_gov_unit12 <-
-  fixef_f[[1]] + fixef_f[[3]] + fixef_f[[5]] + fixef_f[[9]] + fixef_f[[2]] * c(0:5) + 
-  fixef_f[[6]] * c(0:5) + fixef_f[[8]] * c(0:5) + fixef_f[[11]] * c(0:5)
+  fixef_f[[1]] + fixef_f[[3]] + fixef_f[[5]] + fixef_f[[9]] + fixef_f[[2]] * c(0:5) + fixef_f[[6]] * c(0:5) + 
+  fixef_f[[8]] * c(0:5) + fixef_f[[11]] * c(0:5)
   
 # Independent (unit 11)
 fit_ind_unit11 <-
-  fixef_f[[1]] + fixef_f[[4]] + fixef_f[[2]] * c(0:5) + fixef_f[[7]] * c(0:5) + 
-  fixef_f[[8]] * c(0:5) + fixef_f[[12]] * c(0:5)
+  fixef_f[[1]] + fixef_f[[4]] + fixef_f[[2]] * c(0:5) + fixef_f[[7]] * c(0:5) 
   
 # Independent (unit 12)
 fit_ind_unit12 <-
-  fixef_f[[1]] + fixef_f[[4]] + fixef_f[[5]] + fixef_f[[10]] + fixef_f[[2]] * c(0:5) +
-  fixef_f[[7]] * c(0:5) + fixef_f[[8]] * c(0:5) + fixef_f[[12]] * c(0:5)
+  fixef_f[[1]] + fixef_f[[4]] + fixef_f[[5]] + fixef_f[[10]] + fixef_f[[2]] * c(0:5) + fixef_f[[7]] * c(0:5) + 
+  fixef_f[[8]] * c(0:5) + fixef_f[[12]] * c(0:5)
 ```
 
 ```{r}
@@ -493,7 +566,8 @@ fit_f <- fit_f %>%
            remove = FALSE) # Keep old variable for grouping in plot
 ```
 
-```{r}
+
+```{r ess-math-fixef, fig.cap = "Fixed effects of the final model for Essential Mathematics"}
 fit_f %>% 
   ggplot(aes(x = completion_year,
              y = fit,
@@ -513,6 +587,8 @@ fit_f %>%
                      labels = seq(2020, 2025, by = 1)) 
 ```
 
+With a three-way interaction, it is easier to visualise the fixed effects (Figure \@ref(fig:ess-math-fixef)). All sectors demonstrated the same trend with units, where unit 11 showed a larger increase in enrolments, on average. This implies that over the years, more students are enrolling in unit 11 than unit 12.
+
 ## Random effects
 
 ```{r}
@@ -527,8 +603,8 @@ ranef_school_f <- as_tibble(ranef(model_f)) %>%
   ) %>% 
   # Rename intercept and slope names
   mutate(term = if_else(term == "(Intercept)",
-                        true = "Intercept",
-                        false = "Slope")) 
+                        true = "Random Intercept",
+                        false = "Random Slope")) 
 
 # Random effects for between districts
 ranef_district_f <- as_tibble(ranef(model_f)) %>% 
@@ -539,12 +615,12 @@ ranef_district_f <- as_tibble(ranef(model_f)) %>%
   mutate(term =  as.character(term),
          term = factor(if_else(
            term == "(Intercept)",
-           true = "Intercept",
-           false = term
+           true = "Random Intercept",
+           false = "Random Slope"
          )))
 ```
 
-```{r}
+```{r ess-math-school-ranef, fig.cap = "Random effects for schools"}
 # Plot random effect for schools nested within districts
 ranef_school_f %>% 
   group_by(term) %>% 
@@ -560,7 +636,9 @@ ranef_school_f %>%
              scales = "free_x")
 ```
 
-```{r}
+As shown in the model output and in Figure \@ref(fig:ess-math-school-ranef), there was little correlation (-0.12) between the random intercept and slope. Schools with appear to decrease or increase in enrolments at different rates; This may be attributed to the fact that the data only consists of observations for three years and there is not enough data to evaluate the enrolment patterns in schools.
+
+```{r ess-math-district-ranef, fig.cap = "Random intercept for districts"}
 # Plot random effects for between districts
 ranef_district_f %>% 
 # Reorder group based on by conditional means
@@ -575,9 +653,11 @@ ranef_district_f %>%
              scales = "free_x")
 ```
 
+As the random slopes are removed, all districts are predicted to have the same increase in enrolments over the years; And as was discussed previously, this was a reasonable assumption or an otherwise perfect correlation with random slope and intercept will be fitted. Figure \@ref(fig:ess-math-district-ranef) demonstrates that schools in Goal Coast has the largest enrolments while Mackay have the lowest enrolments in Biology subject, on average.
+
 ## Predictions
 
-```{r}
+```{r ess-math-pred, fig.cap = "Model predictions for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments
 set.seed(136)
 ess_math_long %>% 
@@ -595,6 +675,40 @@ ess_math_long %>%
   facet_wrap(~ qcaa_school_id) +
   theme(axis.text.x = element_text(angle = 90))
 ```
+
+Figure \@ref(fig:ess-math-pred) above shows the predictions for 20 randomly selected schools.
+
+# Model Diagnostics
+
+```{r}
+# qqplot
+as_tibble(ranef(model_f)) %>% 
+  ggplot(aes(sample = condval)) +
+  geom_qq() +
+  geom_qq_line(colour = "steelblue") +
+  facet_wrap(~ term,
+             scales = "free")
+```
+
+```{r}
+# Residual vs. fitted plot
+broom.mixed::augment(model_f) %>% 
+  ggplot() +
+  geom_point(aes(x = .fitted,
+                 y = .resid),
+             alpha = 0.2) +
+  geom_hline(yintercept = 0,
+             colour = "red")
+```
+
+
+
+
+
+
+
+
+
 
 
 

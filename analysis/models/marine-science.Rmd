@@ -39,9 +39,6 @@ mathsci_all <- mathsci_all %>%
                 ~ as.factor(.x))) 
 ```
 
-
-# The dataset
-
 ```{r}
 marine_sci <- mathsci_all %>% 
   filter(subject_name == "Marine Science")
@@ -52,123 +49,81 @@ marine_sci_long <- marine_sci %>%
                values_to = "enrolments") 
 ```
 
+# Exploring the dataset with basic linear model for each school
+
+```{r marine-sci-prac-eda, fig.cap = "Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for Marine Science"}
+# Fit a linear model for 20 random sampled schools
+set.seed(1995)
+
+marine_sci_long %>% 
+  filter(qcaa_school_id %in% sample(qcaa_school_id, size = 23),
+         enrolments > 0) %>% 
+  ggplot(aes(x = completion_year,
+             y = enrolments)) +
+  geom_point() +
+  stat_smooth(method = "lm",
+              colour = "orange") +
+  facet_wrap(~ qcaa_school_id) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+Figure \@ref(fig:marine-sci-prac-eda) shows a basic linear plot for 20 randomly selected schools. The subject was introduced in 2014, and some school offered the subjects at later years while some schools discontinued the subject (*e.g.* school 373). Next, some schools (*e.g.* school 220 and 233) showed a large increase in enrolments relative to the other schools while some schools showed a decrease in enrolments over the years. The various school sizes can be seen, where some schools have less than 25 enrolments each year while some school have over 50 enrolments per cohort.
+
 # Getting the data ready for modelling
 
-## Removing graduating cohort 2019
+## Removing zero enrolments
 
-```{r}
-# Year 11 enrolments
-p1 <- marine_sci_long %>% 
-  filter(unit == "year_11_enrolments") %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id),
-            alpha = 0.5,
-            colour = "grey40") +
-  facet_wrap(~ unit) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  theme(axis.text.x = element_text(angle = 90),
-        title = element_text(size = 8)) +
-  labs(title = "Enrolments including 2019")
-
-# Year 11 enrolments
-p2 <- marine_sci_long %>% 
-  filter(unit == "year_11_enrolments",
-         completion_year != 2019) %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id),
-            alpha = 0.5,
-            colour = "grey40") +
-  facet_wrap(~ unit) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  theme(axis.text.x = element_text(angle = 90),
-        title = element_text(size = 8)) +
-  labs(title = "Enrolments excluding 2019")
-
-p1 / p2
-```
+As aforementioned, most of the zero enrolments in year 11 (refer to Figure \@ref(fig:year-11-enrolments-all)) were attributed to the 2007 prep year cohort while zero enrolments in year 12 relates to the first year in which a school introduces the subject. Other zero enrolments mostly relates to smaller schools with little to no enrolments in the subject for a given year. For these reasons, all completion years with zero enrolments will also be removed for modelling. 
 
 ## Linearise response variable using log transformation
 
-```{r}
+```{r marine-sci-log-scale, fig.cap = "Effects of log transformation for response variable (enrolments) in Marine Science"}
 p1 <- marine_sci_long %>%
-  filter(enrolments != 0) %>% 
   ggplot(aes(x = enrolments)) +
-  geom_histogram() +
-  labs(title = "Before log transformation")
+  geom_histogram(binwidth = 10,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 15 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "Before log transformation",
+       x = "Enrolments",
+       y = "Density")
 
 p2 <- marine_sci_long %>%
-  filter(enrolments != 0) %>% 
-  ggplot(aes(x = log(enrolments))) +
-  geom_histogram() +
-  labs(title = "After log transformation")
+  ggplot(aes(log(enrolments))) +
+  geom_histogram(binwidth = 0.3,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 0.3 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "After log transformation",
+       x = "Log Enrolments",
+       y = "Density")
 
-p1 / p2
-
-# Time plot after log transformation
-# 20 randomly selected schools
-set.seed(1995)
-marine_sci_long %>% 
-  filter(unit == "year_11_enrolments",
-         completion_year != 2019,
-         enrolments != 0,
-         qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
-  ggplot(aes(x = completion_year,
-             y = log(enrolments),
-             group = qcaa_school_id)) +
-  geom_line() +
-  facet_wrap(~ qcaa_school_id)
-```
-
-## Removing completion year that offer chemistry subject for year 11 students but not for year 12 (and vice versa)
-
-```{r}
-p1 <- marine_sci %>% 
-  ggplot() +
-  geom_point(aes(x = year_11_enrolments,
-                 y = year_12_enrolments),
-             alpha = 0.3) +
-  geom_abline(slope = 1,
-              colour = "red") +
-  labs(title = "All observations") +
-  theme(title = element_text(size = 8))
-
-p2 <- marine_sci %>% 
-  filter(year_12_enrolments != 0,
-         year_11_enrolments != 0) %>% 
-  ggplot() +
-  geom_point(aes(x = year_11_enrolments,
-                 y = year_12_enrolments),
-             alpha = 0.3) +
-  geom_abline(slope = 1,
-              colour = "red") +
-  labs(title = "Removed obs. with enrolments in Year 11 but not in Year 12 (and vice versa)") +
-  theme(title = element_text(size = 8))
-        
 p1 / p2
 ```
 
+The enrolments were right skewed, which is likely to be attributed to the various school sizes (as seen in Figure \@ref(fig:marine-sci-log-scale)). A log transformation was implemented to the response variable (*i.e.* `enrolments`) to allow the the multilevel model to better capture the enrolment patterns. 
+
 ```{r}
+# --- Cleaning script
+
 marine_sci <- marine_sci %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
-  # Remove schools that offer subject in one of Year 11 or Year 12 only
+  # Remove zero enrolments
   filter(year_12_enrolments != 0,
          year_11_enrolments != 0)
 
 marine_sci_long <- marine_sci_long %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
-  # Remove schools that offer subject in one of Year 11 or Year 12 only
-  filter(enrolments != 0)
-
-# Rescale `completion_year` variable
-marine_sci_long <- marine_sci_long %>%
+  # Remove zero enrolments
+  filter(enrolments != 0) %>% 
   # Recentre year
   mutate(year15 = completion_year - min(completion_year),
          .before = completion_year) %>% 
@@ -194,7 +149,7 @@ model0.2 <- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
                  data = marine_sci_long)
 ```
 
-```{r}
+```{r marine-sci-init-models}
 # Obtain AIC for each null model
 model0_AIC <- AIC(model0.0, model0.1, model0.2) 
 
@@ -205,23 +160,45 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable() %>% 
+  kable(caption = "AIC values for all candidate models for Specialist Mathematics") %>% 
   kable_styling(full_width = FALSE,
                 bootstrap_options = c("hovered", "striped"))
 ```
 
-Based on the AIC, the two-level multilevel model is the best.
+As underlined in [Step 3](#step-three), the three candidate models are fitted and their AIC is shown in Table \@ref(tab:marine-sci-init-models). Based on the AIC, the two-level model (`model0.0`) is the best model and will be used in the subsequent analysis.
 
 ## Intraclass correlation ($ICC$)
 
 ```{r}
-summary(model0.0)
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model0.0)
+
+cat("Random effects:", "\n")
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+cat("\n","Fixed effects:", "\n")
+# Extract fixed effects coefficient
+coef(summary(model0.0))
+
+# Print grouping structure
+cat("\n",
+    "Number of schools (level-two group) =",
+    summary(model0.0)$ngrps[1], "\n", 
+    "Number of district (level-three group) =",
+    summary(model0.0)$ngrps[2])
 ```
 
+This model takes into account 81 schools which offer the subject. For a two-level multilevel model, the level two intraclass correlation coefficient (*ICC*) can be computed using the model output above.
 
-The **level-two ICC** is the correlation between a school $i$ from a certain district $j$ in time $t$ and in time $t^*$:
+The **level-two ICC** is the correlation between a school $i$ in time $t$ and time $t^*$:
 
-$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.4411}{(0.4411 + 0.2173)} = 0.6700$$
+$$ \text{level-two ICC} = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.4411}{(0.4411 + 0.2173)} = 0.6700$$
+
+This can be conceptualised as the correlation between the enrolments of a selected school at two randomly drawn year (*i.e.* two randomly selected cohort from the same school). In other words, 67\% of the total variability is attributable to the differences in enrolments within schools at different time periods.
 
 # Unconditional Growth model
 
@@ -232,39 +209,33 @@ model1.0 <- lmer(log_enrolments ~ year15 + (year15 | qcaa_school_id),
                  data = marine_sci_long)
 ```
 
-- Note: no boundary constraint
-
-# Adding predictors to the model
-
-## Adding `sector`
-
 ```{r}
-model2.0 <- lmer(log_enrolments ~ year15 + sector + sector:year15 + 
-                   (year15 | qcaa_school_id),
-                REML = TRUE,
-                data = marine_sci_long)
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model1.0)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model1.0))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model1.0)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model1.0)$ngrps[2])
 ```
 
-### Visualising fixed effects
+The next step involves incorporating the linear growth of time into the model. The model output is shown above.
 
-```{r}
-fixef(model2.0)
-```
+- $\pi_{0ij}$ = 2.7409: Initial status for school $i$ (*i.e.* expected log enrolments when time = 0)
+- $\pi_{1ij}$ = 0.0465: Growth rate for school $i$ 
+- $\epsilon_{tij}$ = 0.1628: Variance in within-school residuals after accounting for linear growth overtime
 
-## Adding `sector` and `unit`
+When the subject was first introduced in 2015, schools were expected to have an average of 15.5009 ($e^{2.7409}$) enrolments. On average, the enrolments were expected to increase by 4.7598\% ($(e^{0.0465} - 1) \times 100$) per year. The estimated within-school variance decreased by 25.07\% (0.2173 to 0.162813), indicating the 25.07\% can be explained by the linear growth in time.
 
-```{r}
-model3.0 <- lmer(log_enrolments ~ year15 + sector + sector:year15 + unit + unit:year15 +
-                   (year15 | qcaa_school_id),
-                REML = TRUE,
-                data = marine_sci_long)
-```
-
-### Visualising fixed effects
-
-```{r}
-fixef(model3.0)
-```
 
 # Testing fixed effects
 
@@ -312,7 +283,7 @@ model4.10 <- update(model4.8, . ~. - sector)
 ```
 
 
-```{r}
+```{r marine-sci-test-fixef}
 # ANOVA test
 model_anova <- anova(
   model4.0,
@@ -331,13 +302,15 @@ model_anova <- anova(
 
 model_anova %>% 
   as_tibble() %>% 
-  select(npar, AIC, BIC, logLik) %>% 
+  select(AIC) %>% 
   mutate(model = rownames(model_anova),
-         .before = npar) %>% 
-  arrange(AIC)
+         .before = AIC) %>% 
+  arrange(AIC) %>% 
+  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
+  kable_styling(full_width = FALSE)
 ```
 
-- Based on the AIC, `model4.4` performed the best.
+As summarise in [step 6](#step-six), level-two predictors `secotr` and `unit` will be added to the model. The largest possible model (`model4.0`) will first be fitted, before iteratively removing fixed effects one at a time (with `model4.10` being the smallest of all 10 candidate models), whilst recording the AIC for each model. `model4.4` (Table \@ref(tab:marine-sci-test-fixef)) appears to have the optimal (smallest) AIC, and will be used in the next section in building the final model.
 
 # Parametric bootstrap to test random effects
 
@@ -381,10 +354,6 @@ bootstrapAnova <- function(mA, m0, B = 1000){
 ```
 
 ```{r}
-summary(model4.4)
-```
-
-```{r}
 # Best model based on AIC and BIC
 
 # Proposed model
@@ -407,12 +376,18 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
                                m0 = bnull, 
                                B = 1000)
 
-save(bootstrapLRT, file = here::here("data/bootstrapLRT/marine-sci-model5.0-vs-model5.1.rda"))
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/marine-sci.rda"))
 ```
 
-```{r}
-load(here::here("data/bootstrapLRT/chem-model5.0-vs-model5.1.rda"))
+```{r marine-sci-bootstrapLRT-tab}
+load(here::here("data/bootstrapLRT/marine-sci.rda"))
 
+as_tibble(bootstrapLRT) %>% 
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+```{r marine-sci-bootstrapLRT-fig}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -426,12 +401,18 @@ ggplot(nullLRT.1) +
     color = "black",
     fill = "white"
   ) + 
-  geom_vline(xintercept = actual, size = 1) +
+  geom_vline(xintercept = actual, 
+             size = 1,
+             colour = "red") +
   geom_line(aes(x = x, y = y)) +
-  # xlim(c(-.5,10)) +
   labs(y = "Density",
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
+
+
+The parametric bootstrap is used to approximate the likelihood ratio test statistic to produce a more accurate p-value by simulating data under the null hypothesis (detailed explanation can be found in [step 7](#step-seven). The p-value indicates the proportion of times in which the bootstrap test statistic is greater than the observed test statistic (as indicated by the red line in Figure \@ref(fig:marine-sci-bootstrapLRT-fig). There is overwhelming statistical evidence ($\chi^2$ = 54.5667 and $p$-value = 0 -- see Table \@ref(tab:marine-sci-bootstrapLRT-tab)) that the larger model (including random slope at level two) is the better model.
+
+# Confidence interval
 
 ```{r}
 # Fit best model with restricted maximum likelihood estimates
@@ -441,19 +422,29 @@ model_f <- lmer(log_enrolments ~ year15 + sector + year15:sector + unit +
              data = marine_sci_long)
 ```
 
-# Confidence interval
-
 ```{r, eval=FALSE}
-confint(model_f,
+confint_f <- confint(model_f,
         method = "boot",
         oldNames = FALSE)
+
+save(confint_f, file = here::here("data/confint/marine-sci.rda"))
 ```
 
+```{r}
+load(here::here("data/confint/marine-sci.rda"))
+
+as_tibble(confint_f) %>% 
+  mutate(var = rownames(confint_f),
+         .before = `2.5 %`) %>% 
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
 
 # Interpreting final model
 
 ## Composite model
-
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
@@ -484,6 +475,8 @@ Y_{tij} =\ &\pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
                    \right] + \\ 
             & \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{10j}year15_{tij} + r_{11j}sector_{ij}year15_{tij} + u_{0ij} + \epsilon_{tij}                        \right] 
 \end{aligned}$$
+
+## Fixed effects
 
 ```{r}
 # Extract fixed effects for final model
@@ -541,7 +534,36 @@ fit_f <- fit_f %>%
            remove = FALSE) # Keep old variable for grouping in plot
 ```
 
+
 ```{r}
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model_f)
+
+cat("Random effects:", "\n")
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+cat("\n","Fixed effects:", "\n")
+# Extract fixed effects coefficient
+coef(summary(model_f))
+
+# Print grouping structure
+cat("\n",
+    "Number of schools (level-two group) =",
+    summary(model_f)$ngrps[1], "\n", 
+    "Number of district (level-three group) =",
+    summary(model_f)$ngrps[2])
+```
+
+Based on the model output (see detailed explanation of fixed effects in [step 9](#step-nine)), the estimated mean enrolments for government schools are estimated to increase by 7.1487% ($(e^{0.0292753+0.0397717} - 1) \times 100$) each year, which is 4.0573% ($(e^{0.0397717} - 1) \times 100)$ more than that of catholic schools. 
+
+On the other hand, independent schools are estimated to have a 1.8632% ($(e^{0.0292753 -0.0108148} - 1) \times 100$) increase in enrolments per year, on average. This increase is 1.0757% ($(e^{-0.0108148}) - 1) \times 100$) less than that of catholic schools.
+
+
+```{r marine-sci-fixef, fig.cap = "Fixed effects of the final model for Marine Science subject"}
 fit_f %>% 
   ggplot(aes(x = completion_year,
              y = fit,
@@ -561,6 +583,8 @@ fit_f %>%
                      labels = seq(1992, 2022, by = 2)) 
 ```
 
+The fixed effects are better accentuated in Figure \@ref(fig:marine-sci-fixef). This figure shows that government schools are expected to have the largest increase in enrolments over the years, on average. For all sectors, it appears that unit 12 enrolments are consistently less than that of unit 11 enrolments, which may suggests that students are not pursuing year 12 after completing year 11 syllabus.
+
 ## Random effects
 
 ```{r}
@@ -568,13 +592,13 @@ fit_f %>%
 ranef_school_f <- as_tibble(ranef(model_f)) %>%
   # Rename intercept and slope names
   mutate(term = if_else(term == "(Intercept)",
-                        true = "Intercept",
-                        false = "Slope")) %>% 
+                        true = "Random Intercept",
+                        false = "Random Slope")) %>% 
   rename(qcaa_school_id = grp)
 ```
 
-```{r}
-# Plot random effect for schools nested within districts
+```{r marine-sci-school-ranef, fig.cap = "Random effects for all schools"}
+# Plot random effect for schools nested
 ranef_school_f %>% 
   group_by(term) %>% 
   # Reorder group based on by conditional means for plotting
@@ -588,10 +612,11 @@ ranef_school_f %>%
   facet_wrap(~ term,
              scales = "free_x")
 ```
+Figure \@ref(fig:marine-sci-school-ranef) represents the random intercept and slope for the random effects for a given school. It is manifest that there are no clear relationship between the random intercept and slope. Some schools with low enrolments when the subject was first introduced the school saw a large increase in enrolments over the years, while some showed a sharp decrease.
 
 ## Predictions
 
-```{r}
+```{r marine-sci-pred, fig.cap = "Model predictions for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments
 set.seed(1982)
 
@@ -610,4 +635,4 @@ marine_sci_long %>%
   facet_wrap(~ qcaa_school_id)
 ```
 
-
+Figure \@ref(fig:marine-sci-pred) above shows the predictions for 20 randomly selected schools.

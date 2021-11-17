@@ -15,8 +15,8 @@ biblio-style: apa
 link-citations: yes
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message = FALSE)
+```{r report-setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
 
 ```{r}
@@ -67,7 +67,7 @@ The following research questions guided the report:
 
 ## Extracting the dataset
 
-```{r}
+```{r data-description}
 data_desc <- tibble(
   Variable =
     c(
@@ -132,9 +132,9 @@ Queensland ATARs are based on a student's:
   - Best results in four General subjects, plus one Applied subject, or
   - Best results in four General subjects, plus one VET qualification at Certificate III or above
 
-In the ATAR calculation, only *one* applied subject can be included in the ATAR calculation. For instance, if a student enrols in Essential Mathematics (applied subject) and Science in Practice	(Applied subject), only the higher of both 
+In the ATAR calculation, only *one* applied subject can be included in the ATAR calculation. For instance, if a student enrols in Essential Mathematics (applied subject) and Science in Practice	(applied subject), only the higher of both 
 
-## A new suite of senior mathematics and science subjects
+## A new suite of senior mathematics and science subjects {#new-subjects}
 
 In light of the new system, a new suite of senior subjects are reviewed and redeveloped, along with new ones introduced. The new senior syllabuses include **general (extension) subjects** for students who wish to pursue tertiary pathways, vocational education and training, and work. These subjects will have four summative assessments --- three internal and one external examination at the end of Year 12, which are set and marked by independent teacher assessors accredited by the Queensland Curriculum and Assessment Authority. On the other hand, **applied (essential) subjects** are mainly for students interested in pathways beyond school that primarily lead to vocational education and training or directly to work. These subjects tend to be more 'real world' focus and do not have external examinations but have a total of four summative internal assessments.
 
@@ -213,7 +213,7 @@ mathsci_all %>%
                       "General Sciences" = 7)) 
 ```
 
-Unlike mathematics subjects, there are little changes in the subject names. As demonstrated in Table \@ref(tab:qce-science) There are two main changes in science subjects --- 'Psychology' is introduced in the new QCE system and earth science is renamed to Earth and Environmental Science.
+Unlike mathematics subjects, there are little changes in the subject names. As demonstrated in Table \@ref(tab:qce-science) There are two main changes in science subjects --- 'Psychology' is introduced in the new QCE system and Earth Science is renamed to Earth and Environmental Science.
 
 
 # Data Cleaning
@@ -366,33 +366,33 @@ mathsci_all_long %>%
 Figure \@ref(fig:participating-schools) displays the total number of participating schools for a given year. Some subjects showed rather stable enrolment figures such as Biology and Chemistry, which showed a steady increase in participating schools over the years. Other subjects like Science in Practice and Earth and Environmental Science showed a rather erratic trend, where the first year of Earth and Environmental Science subject showed the largest number of participating schools while Science in Practice subject showed a one-off year (2016) in which the total schools was significantly greater than the other years.
 
 
-## Total Enrolments for each Subject over the years
+## Average Enrolments for each Subject over the years
 
-```{r}
+```{r mean-enrolments-all, fig.cap = "Average enrolments for all schools for each year, enrolments for the new QCE system are coloured in a darker shade of grey"}
 # Compute total Year 12 enrolments for each year, by subject
-total_enrolments <- mathsci_all %>% 
+mean_enrolments_all <- mathsci_all %>% 
   group_by(completion_year, subject_name, subject) %>% 
-  summarise(total_year12_enrolments = sum(year_12_enrolments),
+  summarise(mean_year12_enrolments = mean(year_12_enrolments),
             .groups = "drop") 
 
-total_enrolments %>% 
+mean_enrolments_all %>% 
   ggplot() +
   # Enrolments for all years (old & new system)
   geom_col(aes(x = completion_year,
-               y = total_year12_enrolments),
+               y = mean_year12_enrolments),
            fill = "grey80") +
   # Enrolments for from 2019 (new system)
   geom_col(aes(x = completion_year,
-               y = total_year12_enrolments),
+               y = mean_year12_enrolments),
            fill = "grey30",
-           data = filter(total_enrolments, completion_year > 2019)) + 
+           data = filter(mean_enrolments_all, completion_year > 2019)) + 
   facet_wrap(~ subject_name,
              scales = "free_y") +
   scale_x_continuous(breaks = seq(1992, 2022, by = 2),
                      labels = seq(1992, 2022, by = 2)) +
   theme(panel.grid.minor = element_blank(),
         axis.text.x = element_text(angle = 90)) +
-  labs(title = "Total Enrolments for each subject per cohort",
+  labs(title = "Average (mean) year 12 enrolments for each subject per cohort",
        x = "Completion Year",
        y = "Year 12 Enrolments")
 ```
@@ -403,7 +403,7 @@ Subjects were introduced at different time frames. Aquatic practices and Marine 
 
 ## Time plot: Enrolments across the years
 
-```{r time-plot-all}
+```{r time-plot-all, fig.cap = "Time plot of enrolments of all the subjects across the years"}
 mathsci_all_long %>% 
   # filter(subject_name == "Earth & Environmental Science") %>% 
   group_by(qcaa_school_id, subject_name, unit) %>%
@@ -424,12 +424,6 @@ mathsci_all_long %>%
                colour = "orange",
                geom = "line",
                size = 1.5) +
-  # geom_smooth(aes(x = completion_year,
-  #                 y = enrolments,
-  #                 group = 1),
-  #             alpha = 0.8,
-  #             se = FALSE,
-  #             colour = "orange") +
   scale_x_continuous(breaks = seq(1992, 2022, by = 2),
                      labels = seq(1992, 2022, by = 2)) +
   facet_wrap(~ subject_name,
@@ -532,7 +526,7 @@ In general, larger schools (with relatively high enrolment numbers for a given s
 
 ### Comparing distirbution of subjects
 
-```{r density-plots, "Distributions of enrolments for each subject shown with a density plot, overlaid with a density plot"}
+```{r density-plots, fig.cap="Distributions of enrolments for each subject shown with a density plot, overlaid with a density plot"}
 library(ggridges)
 
 mathsci_all_long %>% 
@@ -547,7 +541,7 @@ The distribution of enrolments for each subject appears to be right skewed (Figu
 
 ### Comparing enrolments across sectors using boxplot 
 
-```{r boxplot-dist}
+```{r boxplot-dist, fig.cap="Box-plot of distribution of enrolments for each subject by sector"}
 # Distribution of enrolments for each subject by sector
 mathsci_all %>%
   ggplot() +
@@ -559,7 +553,7 @@ mathsci_all %>%
              scales = "free")
 ```
 
-In most subjects, the distribution in enrolments across all sectors were rather similar (Figure \@ref(fig:boxplot-dist). Subjects that were introduced early such as Biology, Chemistry, Specialist Mathematics, and Physics showed stable enrolment numbers, with little variation across the different sectors. As highlighted by the outliers in all subjects, there were schools that has significantly more enrolments, these observations may refer to the larger schools in Queensland. These outliers are considerably prominent, especially in Government schools.
+In most subjects, the distribution in enrolments across all sectors were rather similar (Figure \@ref(fig:boxplot-dist)). Subjects that were introduced early such as Biology, Chemistry, Specialist Mathematics, and Physics showed stable enrolment numbers, with little variation across the different sectors. As highlighted by the outliers in all subjects, there were schools that has significantly more enrolments, these observations may refer to the larger schools in Queensland. These outliers are considerably prominent, especially in Government schools.
 
 # Predicting enrolments 
 
@@ -673,25 +667,16 @@ At level three:
 
 In combining level 1,2 and 3, the composite model can be obtained:
 
-$$\begin{aligned} 
-
-  Y_{ij} & = \pi_{0ij} + \epsilon_{tij} \\
+$$\begin{aligned} Y_{ij} & = \pi_{0ij} + \epsilon_{tij} \\
          & = (\beta_{00j} + u_{0ij}) + \epsilon_{tij} \\
-         & = (\gamma_{000}) + (r_{00j} + u_{0ij} + \epsilon_{tij})
-
-\end{aligned}$$
+         & = (\gamma_{000}) + (r_{00j} + u_{0ij} + \epsilon_{tij}) \end{aligned}$$
 
 The model can be split into two parts. The 'fixed effects' will be represented in the first parentheses of the last expression, usually denoted by $\gamma$ while the 'random effects' will be represented in the second parentheses, denoted by $r$, $u$ and $\epsilon$ components. 
 
 where,
 
-$$\begin{aligned} 
-
-  \epsilon_{tij} & \sim N(0, \sigma^2) \\
-  u_{0ij}        & \sim N(0, \tau^2_{00}) \\
-  r_{00j}        & \sim N(0, \phi^2_{00}) 
-  
-\end{aligned}$$
+$$\begin{aligned} \epsilon_{tij} & \sim N(0, \sigma^2) \\ u_{0ij} & \sim N(0, \tau^2_{00}) \\ 
+r_{00j} & \sim N(0, \phi^2_{00}) \end{aligned}$$
 
 Where,
 - $\epsilon_{tij}$: Variance over time within schools
@@ -742,13 +727,9 @@ At level three:
 
 In combining the levels, the full composite model may be obtained:
 
-$$\begin{aligned}
-  Y_{tij} &= \pi_{0ij} + \pi_{1ij}year_{tij} + \epsilon_{tij} \\
-          &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year_{tij} +  \epsilon_{tij} \\
-          &= (\gamma_{000} + r_{00j} + u_{0ij})  + (\gamma_{100} + r_{10j} + u_{1ij})year_{tij} + \epsilon_{tij} \\
-          &= [\gamma_{000} + \gamma_{100}year_{tij}] + [r_{00j} + u_{0ij} + \epsilon_{tij} + (r_{10j} + u_{1ij})year_{tij}]
-  
-\end{aligned}$$
+$$\begin{aligned} Y_{tij} &= \pi_{0ij} + \pi_{1ij}year_{tij} + \epsilon_{tij} \\ &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year_{tij} +  \epsilon_{tij} \\
+&= (\gamma_{000} + r_{00j} + u_{0ij})  + (\gamma_{100} + r_{10j} + u_{1ij})year_{tij} + \epsilon_{tij} \\
+&= [\gamma_{000} + \gamma_{100}year_{tij}] + [r_{00j} + u_{0ij} + \epsilon_{tij} + (r_{10j} + u_{1ij})year_{tij}] \end{aligned}$$
 
 With, $\epsilon_{ijk} \sim N(0, \sigma^2)$,
 
@@ -858,18 +839,29 @@ Fixed effects are functions of the covariates that accounts for the differences 
 
 With the higher-level variance being 'controlled out' by the fixed effects, the random effects framework allows for heterogeneity to not only be corrected, but explicitly modelled (@bell2015explaining). The random effects expresses the variation between all schools, which assumes that the higher-level entities comes from random draws of a normal distribution -- which the variance is estimated by the model -- and can itself be interpretable and relevant. This implies that random effects induces  a correlation between schools at the same level (*e.g.* schools in the same district).
 
-### 10. Model Diagnostics
+```{r, child="models/agricultural-practices.Rmd"}
+```
 
-- QQ plot
-- Fitted vs residuals to check for heteroscedasticity
+```{r, child="models/agricultural-science.Rmd"}
+```
 
-## Limitations
+```{r, child="models/aquatic-practices.Rmd"}
+```
 
-- Different optimisers are used, no change in interpretation, only more computationally intensive (@glmm-faq). In most cases, "bobyqa" and "Nelder_Mead" optimiser is used.
+```{r, child="models/biology.Rmd"}
+```
 
-Some limitations to this report 
-- No proportions dataset 
-- Only indicator variables are available
+```{r, child="models/chemistry.Rmd"}
+```
+
+```{r, child="models/earth-and-environmental-science.Rmd"}
+```
+
+```{r, child="models/mathematical-methods.Rmd"}
+```
+
+```{r, child="models/specialist-mathematics.Rmd"}
+```
 
 # Acknowledgement
 

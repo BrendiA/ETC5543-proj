@@ -44,8 +44,6 @@ mathsci_all <- mathsci_all %>%
 ``` 
 
 
-# The dataset
-
 ```{r}
 phys <- mathsci_all %>% 
   filter(subject_name == "Physics")
@@ -56,123 +54,83 @@ phys_long <- phys %>%
                values_to = "enrolments") 
 ```
 
-# Getting the data ready for modelling
 
-## Removing graduating cohort 2019
+# Exploring the dataset with basic linear model
 
-```{r}
-# Year 11 enrolments
-p1 <- phys_long %>% 
-  filter(unit == "year_11_enrolments") %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id),
-            alpha = 0.5,
-            colour = "grey40") +
-  facet_wrap(~ unit) +
+```{r phys-eda, fig.cap="Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for Physics"}
+# Fit a linear model for 20 random sampled schools
+set.seed(190)
+
+phys_long %>% 
+  filter(qcaa_school_id %in% sample(qcaa_school_id, size = 21),
+         enrolments > 0) %>% 
+  ggplot(aes(x = completion_year,
+             y = enrolments)) +
+  geom_point() +
+  stat_smooth(method = "lm",
+              colour = "orange",
+              se = FALSE) +
+  facet_wrap(~ qcaa_school_id) +
   scale_x_continuous(breaks = seq(1992, 2022, by = 2),
                      labels = seq(1992, 2022, by = 2)) +
-  theme(axis.text.x = element_text(angle = 90),
-        title = element_text(size = 8)) +
-  labs(title = "Enrolments including 2019")
-
-# Remove enrolments in 2019 
-p2 <- phys_long %>% 
-  filter(unit == "year_11_enrolments",
-         completion_year != 2019) %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id),
-            alpha = 0.5,
-            colour = "grey40") +
-  facet_wrap(~ unit) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  theme(axis.text.x = element_text(angle = 90),
-        title = element_text(size = 8)) +
-  labs(title = "Enrolments excluding 2019")
-
-p1 / p2
+  theme(axis.text.x = element_text(angle = 90))
 ```
 
-## Linearise response variable using log transformation
+Figure \@ref(fig:phys-eda) fits a linear model for enrolments for a random sample of 20 schools. School cohorts vary greatly in sizes; For instance, most schools in these random draws have approximately less than 50 enrolments per cohort except for school 2 and school 11. As each panel have the same y and x-axis, the fitted line are computed relative to one another. It is apparent that school 2 and school 11 have significantly larger increase in enorlments than all the other randomly selected schools. 
 
-```{r}
+## Getting the data ready for modelling
+
+### Removing zero enrolments
+
+All zero enrolments in a given year will be removed for modelling. As aforementioned, most of the zero enrolments in year 11 (refer to Figure \@ref(fig:year-11-enrolments-all)) were attributed to the 2007 prep year cohort while zero enrolments in year 12 relates to the first year in which a school introduces the subject. Other zero enrolments mostly relates to smaller schools with little to no enrolments in the subject for a given year. These zero enrolments will be removed for modelling purposes.
+
+### Linearise response variable using log transformation
+
+```{r phys-log-scale, fig.cap = "Effects of log transformation for response variable (enrolments) in Specialist Mathematics subject"}
 p1 <- phys_long %>%
   ggplot(aes(x = enrolments)) +
-  geom_histogram() +
-  labs(title = "Before log transformation")
+  geom_histogram(binwidth = 15,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 15 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "Before log transformation",
+       x = "Enrolments",
+       y = "Density")
 
 p2 <- phys_long %>%
-  ggplot(aes(x = log(enrolments))) +
-  geom_histogram() +
-  labs(title = "After log transformation")
+  ggplot(aes(log(enrolments))) +
+  geom_histogram(binwidth = 0.3,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 0.3 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "After log transformation",
+       x = "Log Enrolments",
+       y = "Density")
 
-p1 / p2
-
-# Time plot after log transformation
-# 20 randomly selected schools
-set.seed(2012)
-phys_long %>% 
-  filter(unit == "year_11_enrolments",
-         completion_year != 2019,
-         enrolments!= 0,
-         qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
-  ggplot(aes(x = completion_year,
-             y = log(enrolments),
-             group = qcaa_school_id)) +
-  geom_line() +
-  facet_wrap(~ qcaa_school_id)
-```
-
-## Removing completion year that offer chemistry subject for year 11 students but not for year 12 (and vice versa)
-
-```{r}
-p1 <- phys %>% 
-  ggplot() +
-  geom_point(aes(x = year_11_enrolments,
-                 y = year_12_enrolments),
-             alpha = 0.3) +
-  geom_abline(slope = 1,
-              colour = "red") +
-  labs(title = "All observations") +
-  theme(title = element_text(size = 8))
-
-p2 <- phys %>% 
-  filter(year_12_enrolments != 0,
-         year_11_enrolments != 0) %>% 
-  ggplot() +
-  geom_point(aes(x = year_11_enrolments,
-                 y = year_12_enrolments),
-             alpha = 0.3) +
-  geom_abline(slope = 1,
-              colour = "red") +
-  labs(title = "Removed obs. with enrolments in Year 11 but not in Year 12 (and vice versa)") +
-  theme(title = element_text(size = 8))
-        
 p1 / p2
 ```
 
+As multilevel model assumes normality in the error terms, a log transformation is utilised to allow models to be estimated by the linear mixed models. The log transformation allows enrolment numbers to be approximately normally distributed (Figure \@ref(fig:phys-log-scale).
+
 ```{r}
-# ----- Cleaning script
+# --- Cleaning script
 
 phys <- phys %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
-  # Remove schools that offer subject in one of Year 11 or Year 12 only
+  # Remove zero enrolments
   filter(year_12_enrolments != 0,
          year_11_enrolments != 0)
 
 phys_long <- phys_long %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
-  # Remove schools that offer subject in one of Year 11 or Year 12 only
-  filter(enrolments != 0)
-
-# Rescale `completion_year` variable
-phys_long <- phys_long %>%
+  # Remove zero enrolments
+  filter(enrolments != 0) %>% 
   # Recentre year
   mutate(year92 = completion_year - min(completion_year),
          .before = completion_year) %>% 
@@ -180,8 +138,7 @@ phys_long <- phys_long %>%
   mutate(log_enrolments = log(enrolments))
 ```
 
-
-# Unconditional means model
+## Unconditional means model
 
 ```{r}
 # ----- Fit possible null model
@@ -199,7 +156,7 @@ model0.2 <- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
                  data = phys_long)
 ```
 
-```{r}
+```{r phys-init-models}
 # Obtain AIC for each null model
 model0_AIC <- AIC(model0.0, model0.1, model0.2) 
 
@@ -210,28 +167,49 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable() %>% 
+  kable(caption = "AIC values for all candidate models for Physics") %>% 
   kable_styling(full_width = FALSE,
-                bootstrap_options = c("hovered", "striped"))
+                bootstrap_options = c("hover", "striped"))
 ```
 
-- Based on the AIC values, the model with schoools nested within districts will be used.
+As per [Step 3](#step-three), the three potential models are fitted, with the AIC shown in Table \@ref(tab:chem-init-models). Based on the AIC, `model0.2`, corresponding the schools nested within districts is the best model and will be used in the subsequent analysis. 
 
-## Intraclass correlation ($ICC$)
+### Intraclass correlation ($ICC$)
 
 ```{r}
-summary(model0.2)
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model0.2)
+
+cat("Random effects:", "\n")
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+cat("\n","Fixed effects:", "\n")
+# Extract fixed effects coefficient
+coef(summary(model0.2))
+
+# Print grouping structure
+cat("\n",
+    "Number of schools (level-two group) =",
+    summary(model0.2)$ngrps[1], "\n", 
+    "Number of district (level-three group) =",
+    summary(model0.2)$ngrps[2])
 ```
 
+This model takes into account 445 schools nested in 13 districts. In a three-level multilevel model, two intraclass correlations can be obtained using the model summary output above:
 
 The **level-two ICC** is the correlation between a school $i$ from a certain district $j$ in time $t$ and in time $t^*$:
 
-$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.5294}{(0.5294 + 0.1178 + 0.2188)} = 0.6113$$
+$$\text{level-two ICC} = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.5294}{(0.5294 + 0.1178 + 0.2188)} = 0.6113$$
 
 The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific district $j$. 
 
-$$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1178}{(0.5294 + 0.1178 + 0.2188)} = 0.1360$$
-# Unconditional growth model
+$$\text{level-three ICC} = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1178}{(0.5294 + 0.1178 + 0.2188)} = 0.1360$$
+
+## Unconditional growth model
 
 ```{r}
 # Unconditional growth model
@@ -243,53 +221,44 @@ model1.0 <- lmer(log_enrolments ~ year92 +
                 data = phys_long)
 ```
 
-- Note: no boundary constraint
-
-# Adding predictors to the model
-
-## Adding `sector`
-
-```{r}
-model2.0 <- lmer(log_enrolments ~ year92 + sector + sector*year92 +
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (year92 | qcaa_district),
-                REML = TRUE,
-                control = lmerControl(optimizer = "bobyqa"),
-                data = phys_long)
+```{r, echo=TRUE, eval=FALSE}
+summary(model)
 ```
 
-### Visualising fixed effects
-
 ```{r}
-fixef(model2.0)
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model1.0)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model1.0))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model1.0)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model1.0)$ngrps[2])
 ```
 
-## Adding `sector` and `unit`
+- $\pi_{0ij}$ = 2.3418: Initial enrolments for school $i$ in district $j$ (*i.e.* expected log enrolments when time = 0)
+- $\pi_{1ij}$ = 0.01183: Growth rate for student $i$ in school $j$
+- $\epsilon_{tij$ = 0.1686: Residual associated with student score at a specific time point 
+
+When the subject was first introduced in 1992, school were expected to have 10.40 ($e^{2.3418}$), on average. Enrolments are expected to increase by 1.19% ($(e^{0.01183} - 1) \times 100$) per year. The estimated within-schools variance decreased by 22.9342\% (0.2188 to 0.16862), implying that 22.9342\% of within-school variability can be explained by the linear growth over time.
+
+
+## Testing fixed effects
 
 ```{r}
-model3.0 <- lmer(log_enrolments ~ year92 + sector + sector*year92 + unit + unit:year92 +
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (year92 | qcaa_district),
-                REML = TRUE,
-                control = lmerControl(optimizer = "bobyqa"),
-                data = phys_long)
-```
-
-
-### Visualising fixed effects
-
-```{r}
-fixef(model3.0)
-```
-
-# Testing fixed effects
-
-```{r}
+# Largest possible model
 model4.0 <- lmer(log_enrolments ~ year92*sector*unit +
                 (year92 | qcaa_district:qcaa_school_id) + 
                 (year92 | qcaa_district),
                 REML = FALSE,
-                control = lmerControl(optimizer = "bobyqa"),
                 data = phys_long)
 
 # ----- Specify all models with different fixed effects
@@ -319,7 +288,7 @@ model4.7 <- update(model4.1, . ~ . - unit:year92)
 
 # --- No interactions
 
-# Include 3 fixed effects
+# Include 2 fixed effects
 model4.8 <- update(model4.1, . ~. - unit:year92 - sector:year92 - unit:year92)
 
 # Remove unit fixed effects
@@ -330,7 +299,7 @@ model4.10 <- update(model4.8, . ~. - sector)
 ```
 
 
-```{r}
+```{r phys-test-fixef}
 # ANOVA test
 model_anova <- anova(
   model4.0,
@@ -349,16 +318,17 @@ model_anova <- anova(
 
 model_anova %>% 
   as_tibble() %>% 
-  select(npar, AIC, BIC, logLik) %>% 
+  select(AIC) %>% 
   mutate(model = rownames(model_anova),
-         .before = npar) %>% 
-  arrange(AIC)
+         .before = AIC) %>% 
+  arrange(AIC) %>% 
+  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
+  kable_styling(full_width = FALSE)
 ```
 
-- Seems like the best model is the one without the interaction `year92:unit`
-- Based on the AIC, the best model is `model4.7`
+As highlighted in [step 6](#step-six), `sector` and `unit` will be added as predictors to the model. The largest possible model will be fitted, before removing fixed effects one by one while recording the AIC for each model. In this case, `model4.0` corresponds to the largest possible model while `model4.10` is the smallest possible model. The model with the optimal (lowest) AIC is `model4.7` (Table \@ref(tab:chem-test-fixef)). The next section will test the selected model's random effects to build the final model.
 
-# Parametric bootstrap to test random effects
+## Parametric bootstrap to test random effects
 
 ```{r}
 bootstrapAnova <- function(mA, m0, B = 1000){
@@ -399,7 +369,6 @@ bootstrapAnova <- function(mA, m0, B = 1000){
 }
 ```
 
-
 ```{r}
 # Best model based on AIC and BIC
 
@@ -425,19 +394,19 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
                                m0 = bnull, 
                                B = 1000)
 
-save(bootstrapLRT, file = here::here("data/bootstrapLRT/phys-model5.0-vs-model5.1.rda"))
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/phys.rda"))
 ```
 
-```{r}
-load(here::here("data/bootstrapLRT/phys-model5.0-vs-model5.1.rda"))
+```{r phys-bootstrapLRT-tab}
+load(here::here("data/bootstrapLRT/phys.rda"))
+
+as_tibble(bootstrapLRT) %>% 
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
+  kable_styling(full_width = FALSE)
 ```
 
-```{r}
-as_tibble(bootstrapLRT)
-```
 
-
-```{r}
+```{r phys-bootstrapLRT-plot, fig.cap = "Histogram of likelihood ratio test statistic, with a red vertical line indicating the likelihood ratio test statistic for the actual model"}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -449,18 +418,19 @@ ggplot(nullLRT.1) +
     aes(x = nullLRT, y = ..density..),
     bins = 25,
     color = "black",
-    fill = "white"
+    fill = "grey80"
   ) + 
-  geom_vline(xintercept = actual, size = 1) +
+  geom_vline(xintercept = actual, 
+             size = 1,
+             colour = "red") +
   geom_line(aes(x = x, y = y)) +
-  # xlim(c(-.5,10)) +
   labs(y = "Density",
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
 
-- The bootstrap likelihood ratio test is significant at the 1% level ($\chi^2$ = 7.2276, $p$-value = 0.006), suggesting that the bigger model is the better alternative.
+The parametric bootstrap is used to approximate the likelihood ratio test statistic to produce a more accurate p-value by simulating data under the null hypothesis (detailed explanation can be found in [step 7](#step-seven). Figure \@ref(fig:phys-bootstrapLRT-tab) displays the likelihood ratio test statistic from the null distribution, with the red line representing the likelihood ratio test statistic using the actual data. The bootstrap likelihood ratio test is significant at the 1% level ($\chi^2$ = 7.2276, $p$-value = 0.006 -- see Table), suggesting that the larger model (with random slope at level three) is the better alternative.
 
-# Confidence inetrval
+## Confidence inetrval
 
 ```{r}
 # Fit best model with restricted maximum likelihood estimates
@@ -473,14 +443,29 @@ model_f <- lmer(log_enrolments ~ year92 + sector + year92:sector + unit + sector
 ```
 
 ```{r, eval=FALSE}
-confint(model_f,
-        method = "boot",
-        oldNames = FALSE)
+confint_f <- confint(model_f,
+                     method = "boot",
+                     oldNames = FALSE)
+
+save(confint_f, file = here::here("data/confint/phys.rda"))
 ```
 
-# Interpreting final model
+```{r bio-confint}
+load(here::here("data/confint/phys.rda"))
 
-## Fixed effects
+as_tibble(confint_f) %>% 
+  mutate(var = rownames(confint_f),
+         .before = `2.5 %`) %>% 
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
+  kable_styling(full_width = FALSE)
+```
+
+*to edit: reference to table*
+The parametric bootstrap is utilised to construct confidence intervals (as detailed in [step 8](#step-eight)). If the confidence intervals for the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level.  The 95% confidence interval is shown above (Table \@ref(tab:bio-confint)), and the random effects all exclude 0, further reiterating that they are statistically significant at the 5% level.
+
+## Interpreting final model
+
+### Fixed effects
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
@@ -571,6 +556,28 @@ fit_f <- fit_f %>%
 ```
 
 ```{r}
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model_f)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model_f))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model_f)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model_f)$ngrps[2])
+```
+
+Using the model output above (see [step 9](##step-nine) for detailed explanation on fixed effects), the estimated increase in mean enrolments for government schools is 0.1082\% ($e^{0.0131073 - 0.0120259} - 1) \times  100$), which is 1.1954\% ($(e^{0.01626900} - 1) \times 100$) less than that of catholic schools. On the other hand, the mean enrolments for independent schools are estimated to increase by 3.2399\% ($(e^{0.0131073 + 0.0187781} - 1) \times  100$) each year, which is 1.8956\% ($(e^{0.0187781} - 1) \times  100$) more than catholic schools.
+
+
+```{r phys-fixef, fig.cap = "Fixed effects of the final model for Biology"}
 fit_f %>% 
   ggplot(aes(x = completion_year,
              y = fit,
@@ -590,7 +597,9 @@ fit_f %>%
                      labels = seq(1992, 2022, by = 2)) 
 ```
 
-## Random effects
+The fixed effects can be visualised in Figure \@ref(fig:phys-fixef). It is manifest that independent schools shows the largest increase in enrolments over the years, while government schools shows a slight decrease in enrolments across the years, on average. Each sector demonstrated that the average year 11 enrolments was less than year 12 enrolments, why may imply that students are not continuing their year 12 syllabus after completing year 11.
+
+### Random effects
 
 ```{r}
 # Random effects for schools within districts
@@ -621,7 +630,7 @@ ranef_district_f <- as_tibble(ranef(model_f)) %>%
          )))
 ```
 
-```{r}
+```{r phys-school-ranef, fig.cap = "Random effects for schools"}
 # Plot random effect for schools nested within districts
 ranef_school_f %>% 
   group_by(term) %>% 
@@ -635,7 +644,11 @@ ranef_school_f %>%
              colour = "red") +
   facet_wrap(~ term,
              scales = "free_x")
+```
 
+Figure \@ref(fig:phys-school-ranef) displays the random effects for a given school. It is apparent that the random intercepts and slopes are negatively correlated, where a large intercept is associated with a smaller random slope (correlation = -0.70, as shown in the model output). This indicates that a larger school is associated with a smaller increase (decrease) in enrolments over the years while smaller schools are predicted to have larger increase in enrolments over the years.
+
+```{r phys-district-ranef, fig.cap = "Random intercept for districts"}
 # Plot random effects for between districts
 ranef_district_f %>% 
 # Reorder group based on by conditional means
@@ -650,9 +663,11 @@ ranef_district_f %>%
              scales = "free_x")
 ```
 
-## Predictions
+The model includes a random slope at level three, and the effects of the random intercept and slope in level three is shown in Figure \@ref(fig:phys-district-ranef). As shown in the model output, correlation between the random intercept and slope is 0.62. Loosely speaking, this suggests that districts with large enrolments are going to be larger, while smaller districts are going to increase (decrease) at a slower rate. Based on Figure \@ref(fig:phys-district-ranef), Gold Coast are estimated to have the highest slope, indicating that the rate of change in enrolment is the greatest compared to the other districts.
 
-```{r}
+### Predictions
+
+```{r phys-pred, fig.cap = "Model predictions for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments
 set.seed(1995)
 phys_long %>% 
@@ -670,6 +685,5 @@ phys_long %>%
   facet_wrap(~ qcaa_school_id)
 ```
 
-
-
+Figure \@ref(fig:phys-pred) above shows the predictions for 20 randomly selected schools.
 

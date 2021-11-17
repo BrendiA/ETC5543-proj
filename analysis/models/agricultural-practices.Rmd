@@ -9,8 +9,8 @@ output:
     number_sections: false
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+```{r agri-prac-setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
 
 ```{r, include=FALSE}
@@ -43,6 +43,8 @@ mathsci_all <- mathsci_all %>%
                 ~ as.factor(.x))) 
 ```
 
+# Agricultural Practices
+
 ```{r}
 agri_prac <- mathsci_all %>% 
   filter(subject_name == "Agricultural Practices")
@@ -53,11 +55,37 @@ agri_prac_long <- agri_prac %>%
                values_to = "enrolments") 
 ```
 
-# Getting the data ready for modelling
+## Exploring the dataset with basic linear model for each school
 
-## Removing enrolments before year 2000 and graduating cohort 2019
+```{r agri-prac-eda, fig.cap = "Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for Agricultural Practices", message=FALSE, warning=FALSE}
+# Fit a linear model for 20 random sampled schools
+set.seed(1995)
 
-```{r}
+agri_prac_long %>% 
+  filter(qcaa_school_id %in% sample(qcaa_school_id, size = 21),
+         enrolments > 0) %>% 
+  ggplot(aes(x = completion_year,
+             y = enrolments)) +
+  geom_point() +
+  stat_smooth(method = "lm",
+              colour = "orange") +
+  facet_wrap(~ qcaa_school_id) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(axis.text.x = element_text(angle = 90)) + 
+  labs(x = "Completion year",
+       y = "Enrolments",
+       title = "Linear fit for 20 randomly selected schools")
+```
+
+As described in [step 1](#step-one), a basic linear model was plotted for each school to provide insights of the enrolment trends for each school. Figure \@ref(fig:agri-prac-eda) demonstrates a distinct feature, in which there was a halt in the subject from 2000 to 2014. Schools 272 and 278 and 304 appers to re-introduce subject again after the halt, while some schools introduced the subject in 2015. Some enrolment patterns are rather erratic, such as having only one cohort taking the subject (school 613 and 636) or having a start increase in enrolment in one particular year (school 698).
+
+
+## Getting the data ready for modelling
+
+### Removing enrolments before year 2000 and graduating cohort 2019
+
+```{r agri-prac-enrolments, fig.cap = "Time plot of enrolments, demonstrating a halt in the subject from 2000 to 2014"}
 p1 <- agri_prac %>% 
   mutate(old = if_else(completion_year <= 2000,
                        true = "old",
@@ -69,7 +97,10 @@ p1 <- agri_prac %>%
                 group = id),
              alpha = 0.5) +
   scale_x_continuous(breaks = seq(1994, 2022, by = 2),
-                     labels = seq(1994, 2022, by = 2)) 
+                     labels = seq(1994, 2022, by = 2)) +
+  labs(title = "A halt in enrolments in 2000 to 2014",
+       x = "Completion Year",
+       y = "Enrolments")
 
 p2 <- agri_prac %>% 
   # Remove enrolments before 2015, and year 2019
@@ -81,59 +112,76 @@ p2 <- agri_prac %>%
                 group = qcaa_school_id),
              alpha = 0.5) +
   scale_x_continuous(breaks = seq(1994, 2022, by = 2),
-                     labels = seq(1994, 2022, by = 2)) 
+                     labels = seq(1994, 2022, by = 2)) +
+  labs(title = "Removing enrolments in 2019, and before 2015",
+       x = "Completion Year",
+       y = "Enrolments")
 
 p1 / p2
 ```
 
-- A halt in Agricultural practices subject in 2000, before re introducing it in 2015.
-- There are little to no enrolments in year 2019 as the 2019 graduating cohort were part of the Queensland's first Prep Year cohort in 2007
-  - As there are little observations before year 2000 (and enrolment numbers varied greatly as compared to after 2015), these observations will be removed for modelling.
-  
-  
-## Linearise response variable using log transformation
+A halt in Agricultural practices subject in 2000, before being re-introduced again in 2015 (Figure \@ref(fig:agri-prac-enrolments). Enrolments before year 2000 were rather small, as compared to enrolments from 2015 onwards. Therefore, enrolments before year 2000 will be removed.
 
-```{r}
+As aforementioned, most of the zero enrolments in year 11 (refer to Figure \@ref(fig:year-11-enrolments-all)) were attributed to the 2007 prep year cohort while zero enrolments in year 12 relates to the first year in which a school introduces the subject. Other zero enrolments mostly relates to smaller schools with little to no enrolments in the subject for a given year. For these reasons, all completion years with zero enrolments will also be removed for modelling. 
+  
+### Linearise response variable using log transformation
+
+```{r agri-prac-log-scale, fig.cap = "Effects of log transformation for response variable (enrolments) in Agricultural Practices subject"}
 p1 <- agri_prac_long %>%
   ggplot(aes(x = enrolments)) +
-  geom_histogram() +
-  labs(title = "Before log transformation")
+  geom_histogram(binwidth = 10,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 15 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "Before log transformation",
+       x = "Enrolments",
+       y = "Density")
 
 p2 <- agri_prac_long %>%
-  ggplot(aes(x = log(enrolments))) +
-  geom_histogram() +
-  labs(title = "After log transformation")
+  ggplot(aes(log(enrolments))) +
+  geom_histogram(binwidth = 0.3,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 0.3 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "After log transformation",
+       x = "Log Enrolments",
+       y = "Density")
 
 p1 / p2
 ```
 
+As multilevel model assumes normality in the error terms, a log transformation is utilised to allow models to be estimated by the linear mixed models. The log transformation allows enrolment numbers to be approximately normally distributed (Figure \@ref(fig:agri-prac-log-scale)).
 
 ```{r}
-agri_prac_long <- agri_prac_long %>% 
-  # Remove enrolments before 2015, and year 2019
+# ----- Cleaning script
+agri_prac <- agri_prac %>%
+  # Remove graduating cohort 2019 and cohorts before 2000
   filter(completion_year >= 2015,
-         completion_year!= 2019)
+         completion_year != 2019) %>%
+  # Remove zero enrolments
+  filter(year_12_enrolments != 0,
+         year_11_enrolments != 0)
 
-agri_prac <- agri_prac %>% 
-  # Remove enrolments before 2015, and year 2019
-  filter(completion_year >= 2015,
-         completion_year!= 2019)
-```
-
-```{r}
-# Rescale `completion_year` variable
 agri_prac_long <- agri_prac_long %>%
+  # Remove graduating cohort 2019 and cohorts before 2000
+  filter(completion_year >= 2015,
+         completion_year != 2019) %>%
+  # Remove zero enrolments
+  filter(enrolments != 0) %>%
   # Recentre year
   mutate(year15 = completion_year - min(completion_year),
-         .before = completion_year) %>% 
+         .before = completion_year) %>%
   # Log transformation of response variable
-  mutate(log_enrolments = log(enrolments)) %>% 
-  filter(enrolments != 0)
+  mutate(log_enrolments = log(enrolments))
 ```
 
-# Unconditional means model
+## Unconditional means model
 
-```{r}
+```{r message=FALSE}
 # ----- Fit possible null model
 
 # Two-level: Within schools
@@ -149,7 +197,7 @@ model0.2 <- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
                  data = agri_prac_long)
 ```
 
-```{r}
+```{r agri-prac-init-models}
 # Obtain AIC for each null model
 model0_AIC <- AIC(model0.0, model0.1, model0.2) 
 
@@ -160,20 +208,49 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable() %>% 
+  kable(caption = "AIC values for all candidate models for Agricultural Practices") %>% 
   kable_styling(full_width = FALSE,
                 bootstrap_options = c("hovered", "striped"))
 ```
   
-- Based on the AIC, the two-level model is the best (`model0.0`).
+As underlined in [step 3](#step-three), the three candidate models are fitted and their AIC is shown in Table \@ref(tab:agri-prac-init-models). Based on the AIC, the two-level model (`model0.0`) is the best model and will be used in the subsequent analysis.
 
-## Intraclass correlation ($ICC$)
+### Intraclass correlation ($ICC$)
 
+```{r, eval=FALSE, echo=TRUE}
+summary(model0.0)
+```
 
-The **level-two ICC** is the correlation between a school $i$ from a certain district $j$ in time $t$ and in time $t^*$:
+```{r}
+# --- Model summary output
 
-$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.4866}{(0.4866 + 0.3925)} = 0.5535$$
-# Unconditional Growth model
+# Extract variance and correlation component
+vc <- VarCorr(model0.0)
+
+cat("Random effects:", "\n")
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+cat("\n","Fixed effects:", "\n")
+# Extract fixed effects coefficient
+coef(summary(model0.0))
+
+# Print grouping structure
+cat("\n",
+    "Number of schools (level-two group) =",
+    summary(model0.0)$ngrps[1], "\n", 
+    "Number of district (level-three group) =",
+    summary(model0.0)$ngrps[2])
+```
+
+The **level-two ICC** is the correlation between a school $i$ in time $t$ and time $t^*$:
+
+$$ \text{Level-two ICC} = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.4866}{(0.4866 + 0.3925)} = 0.5535$$
+
+This can be conceptualised as the correlation between the enrolments of a selected school at two randomly drawn year (*i.e.* two randomly selected cohort from the same school). In other words, 55.35\% of the total variability is attributable to the differences in enrolments within schools at different time periods.
+
+## Unconditional growth model
 
 ```{r}
 # Unconditional growth model
@@ -181,41 +258,39 @@ model1.0 <- lmer(log_enrolments ~ year15 + (year15 | qcaa_school_id),
                  data = agri_prac_long)
 ```
 
-- Note: no boundary constraint
-
-# Adding predictors to the model
-
-## Adding `sector`
-
-```{r}
-model2.0 <- lmer(log_enrolments ~ year15 + sector + sector:year15 + (year15 | qcaa_school_id),
-                 data = agri_prac_long)
+```{r, eval=FALSE, echo=TRUE}
+summary(model1.0)
 ```
 
-### Visualising fixed effects
-
 ```{r}
-fixef(model2.0)
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model1.0)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model1.0))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model1.0)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model1.0)$ngrps[2])
 ```
 
-## Adding `sector` and `unit`
+The next step involves incorporating the linear growth of time into the model. The model output is shown above.
 
-```{r}
-model2.0 <-
-  lmer(
-    log_enrolments ~ year15 + sector + sector:year15 + unit + unit:year15 +
-      (year15 | qcaa_school_id),
-    data = agri_prac_long
-  )
-```
+- $\pi_{0ij}$ = 2.0128: Initial status for school $i$ in district $j$ (*i.e.* expected log enrolments when time = 0)
+- $\pi_{1ij}$ = 0.1514: Growth rate for school $i$ in district $j$
+- $\epsilon_{tij}$ = 0.2577: Variance in within-school residuals after accounting for linear growth overtime
 
-### Visualising fixed effects
+When the subject was re-introduced into the QCE system in 2015, schools were expected to have 7.4842 ($e^{2.0128}$) enrolment. On average, enrolments were expected to increase by a staggering 16.35\% ($(e^{0.151408} - 1)\times100$) per year. The estimated within-schools variance decreased by 34.34\% (0.3925 to 0.2577), implying that 34.34\% of within-school variability can be explained by the linear growth over time.
 
-```{r}
-fixef(model3.0)
-```
 
-# Testing fixed effects
+## Testing fixed effects
 
 ```{r}
 model4.0 <- lmer(log_enrolments ~ year15*sector*unit +
@@ -260,7 +335,7 @@ model4.9 <- update(model4.8, . ~. - unit)
 model4.10 <- update(model4.8, . ~. - sector)
 ```
 
-```{r}
+```{r agri-prac-test-fixef}
 # ANOVA test
 model_anova <- anova(
   model4.0,
@@ -282,11 +357,14 @@ model_anova %>%
   select(npar, AIC, BIC, logLik) %>% 
   mutate(model = rownames(model_anova),
          .before = npar) %>% 
-  arrange(AIC)
+  arrange(AIC) %>% 
+  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
+  kable_styling(full_width = FALSE)
 ```
-- Based on the AIC, `model4.5` is the best.
 
-# Parametric bootstrap to test random effects
+As outlined in [step 6](#step-six), `sector` and `unit` will be added as predictors to the model. The largest possible model (`model4.0`) will then be fitted, before removing the fixed effects one at a time (with `model4.10` being the smallest of all 10 candidate models), while recording the AIC for each model. `model4.5` appears to have the optimal (smallest) AIC (Table \@ref(tab:agri-prac-test-fixef)), and will be used in the next section to build the final model.
+
+## Parametric bootstrap to test random effects
 
 ```{r}
 bootstrapAnova <- function(mA, m0, B = 1000){
@@ -327,12 +405,10 @@ bootstrapAnova <- function(mA, m0, B = 1000){
 }
 ```
 
-```{r}
-summary(model4.5)
-```
 
 ```{r}
 # Best model based on AIC and BIC
+model4.5
 
 # Proposed model
 balt <-
@@ -358,20 +434,18 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
                                m0 = bnull, 
                                B = 1000)
 
-save(bootstrapLRT, file = here::here("data/agri-prac-model5.0-vs-model5.1.rda"))
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/agri-prac.rda"))
 ```
 
-```{r}
-load(here::here("data/agri-prac-model5.0-vs-model5.1.rda"))
+```{r agri-prac-bootstrapLRT-tab}
+load(here::here("data/bootstrapLRT/agri-prac.rda"))
+
+as_tibble(bootstrapLRT) %>% 
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
+  kable_styling(full_width = FALSE)
 ```
 
-```{r}
-as_tibble(bootstrapLRT)
-```
-
-- Likelihood ratio test suggests the bigger model.
-
-```{r}
+```{r agri-prac-bootstrapLRT-fig, fig.cap = "Histogram of likelihood ratio test statistic, with a red vertical line indicating the likelihood ratio test statistic for the actual model"}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -385,14 +459,20 @@ ggplot(nullLRT.1) +
     color = "black",
     fill = "white"
   ) + 
-  geom_vline(xintercept = actual, size = 1) +
+  geom_vline(xintercept = actual, 
+             size = 1,
+             colour = "red") +
   geom_line(aes(x = x, y = y)) +
   # xlim(c(-.5,10)) +
   labs(y = "Density",
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
 
-# Confidence interval
+The parametric bootstrap is used to approximate the likelihood ratio test statistic to produce a more accurate p-value by simulating data under the null hypothesis (detailed explanation can be found in [step 7](#step-seven). Figure \@ref(fig:agri-prac-bootstrapLRT-fig) displays the likelihood ratio test statistic from the null distribution, with the red line indicates the likelihood ratio test statistic using the actual data. 
+
+The p-value indicates the proportion of times in which the bootstrap test statistic is greater than the observed test statistic. The low estimated $p$-value is 0.009 < 0.05 (Table \@ref(tab:agri-prac-bootstrapLRT-tab)) rejects the null hypothesis at the 5% level, indicating that the larger model (including random slope at level two) is preferred.
+
+## Confidence interval
 
 ```{r}
 # Fit best model with restricted maximum likelihood estimates
@@ -406,16 +486,26 @@ model_f <-
 ```
 
 ```{r, eval=FALSE}
-confint(model_f,
+confint_f <- confint(model_f,
         method = "boot",
         oldNames = FALSE)
-```
 
-## Composite model
+save(confint_f, file = here::here("data/confint/agri-prac.rda"))
+```
 
 ```{r}
-log_enrolments ~ year15 + sector + unit + year15:sector + year15:unit + (year15 | qcaa_school_id)
+load(here::here("data/confint/agri-prac.rda"))
+
+as_tibble(confint_f) %>% 
+  mutate(var = rownames(confint_f),
+         .before = `2.5 %`) %>% 
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
+  kable_styling(full_width = FALSE)
 ```
+
+The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+
+### Composite model
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year15_{tij} + \epsilon_{tij}$$
@@ -429,6 +519,7 @@ Therefore, the composite model can be written as
 
 $$\begin{aligned}Y_{tij} =\ &  \pi_{0ij} + \pi_{1ij}year15_{tij} + \epsilon_{tij} \\ =\ & (\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + u_{1ij})year15_{tij} + \epsilon_{tij} \\ =\ & \left[\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + \beta_{10j}year15_{tij} + \beta_{11j}sector_{ij}year15_{tij} + \beta_{12j}unit_{ij}year15_{tij} \right] \left[u_{0ij} + u_{1ij} + \epsilon_{tij} \right] \end{aligned}$$
 
+### Fixed effects
 ```{r}
 # Extract fixed effects for final model
 fixef_f <- fixef(model_f)
@@ -490,7 +581,35 @@ fit_f <- fit_f %>%
            remove = FALSE) # Keep old variable for grouping in plot
 ```
 
+```{r, eval=FALSE, echo=TRUE}
+summary(model_f)
+```
+
 ```{r}
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model_f)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model_f))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model_f)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model_f)$ngrps[2])
+```
+
+Based on the model output, the estimated mean enrolments for government schools are estimated to be 24.75\% ($e^{0.2211} - 1 \times 100$) more than that of catholic schools when the subject was re-introduced in 2015. Government schools are also estimated to have an estimated increase in mean enrolments of 14.87\% ($(e^{0.0687727 + 0.0699006} - 1) \times 100$) per year, which is 7.24\% more than that of catholic schools. 
+
+On the other hand, independent schools are estimated to have mean enrolments of 41.32% ($(e^{-0.5331780} - 1) \times 100$) less than that of catholic schools in 2015. This low initial status is matched with a relatively large increase of 24.36\% in mean enrolments per year, which is a staggering 16.10\% more than that of catholic schools, on average.
+
+
+```{r agri-prac-fixef, fig.cap = "Fixed effects of the final model for Agricultural Practices subject"}
 # Plot fixed effects
 fit_f %>% 
   ggplot(aes(x = completion_year,
@@ -511,20 +630,22 @@ fit_f %>%
                      labels = seq(2015, 2025, by = 1)) 
 ```
 
-## Random effects
+Based on the fixed effects (see [step 9](##step-nine) for detailed explanation), independent schools show the greatest rate of change (as indicated by the slope in Figure \@ref(fig:agri-prac-fixef)), indicating that enrolment numbers are increasing at the highest rate as compare to all other sectors. For all sectors, unit 12 appears to have a larger slope than that of unit 11, indicating that there are increasingly more unit 12 enrolments than unit 11. It appears that after 2025, unit 12 enrolments are generally more than that of unit 11. Catholic showed a rather slow increase in enrolments relatively to the other sectors.
+
+### Random effects
 
 ```{r}
 # Random effects for all schools
 ranef_school_f <- as_tibble(ranef(model_f)) %>%
   # Rename intercept and slope names
   mutate(term = if_else(term == "(Intercept)",
-                        true = "Intercept",
-                        false = "Slope")) %>% 
+                        true = "Random Intercept",
+                        false = "Random Slope")) %>% 
   rename(qcaa_school_id = grp)
 ```
 
-```{r}
-# Plot random effect for schools nested within districts
+```{r agri-prac-school-ranef, fig.cap = "Random effects for all schools"}
+# Plot random effect for schools
 ranef_school_f %>% 
   group_by(term) %>% 
   # Reorder group based on by conditional means for plotting
@@ -539,24 +660,34 @@ ranef_school_f %>%
              scales = "free_x")
 ```
 
-## Predictions
+Figure \@ref(fig:agri-prac-school-ranef) represents the random intercept and slope of the random effects for all 93 schools who offered Agricultural Practices subject. There are no distinct correlations between the random intercept and slope.
 
-```{r}
+
+### Predictions
+
+```{r agri-prac-pred, fig.cap = "Model predictions for year 11 enrolments for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments
 set.seed(1360)
 
 agri_prac_long %>% 
   filter(unit == "year_11_enrolments") %>% 
   filter(qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
+  # Exponentiate predictions to back transform to original scale
   mutate(pred = predict(model_f, newdata = .)) %>% 
   ggplot() +
+  # Actual data
   geom_line(aes(x = completion_year,
-                y = log(enrolments),
+                y = log_enrolments,
                 group = qcaa_school_id)) +
+  # Predicitons
   geom_line(aes(x = completion_year,
                 y = pred,
                 group = qcaa_school_id),
             colour = "orange") +
   facet_wrap(~ qcaa_school_id)
 ```
+
+Figure \@ref(fig:agri-prac-pred) above shows the predictions for 20 randomly selected schools.
+
+
 

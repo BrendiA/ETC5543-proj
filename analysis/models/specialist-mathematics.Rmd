@@ -9,8 +9,8 @@ output:
     number_sections: false
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+```{r spec-math-setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
 ```
 
 ```{r, include=FALSE}
@@ -18,7 +18,9 @@ library(tidyverse)
 library(broom)
 library(broom.mixed)
 library(colorspace)
+library(here)
 library(kableExtra)
+library(knitr)
 library(lme4)
 library(patchwork)
 
@@ -43,7 +45,7 @@ mathsci_all <- mathsci_all %>%
                 ~ as.factor(.x))) 
 ```
 
-# The dataset
+# Specialist Mathematics
 
 ```{r}
 # Specialist Mathematics subject 
@@ -58,16 +60,16 @@ spec_math_long <- spec_math %>%
 ```
 
 
-# EDA
+## Exploring the dataset with basic linear model
 
-```{r}
+```{r spec-math-eda, fig.cap="Basic linear model for 20 randomly selected schools to provide an at-a-glance visualisation of enrolment trends within schools for Specialist Mathematics subject"}
 # Fit a linear model for 20 random sampled schools
 set.seed(3142)
 spec_math_long %>% 
   filter(qcaa_school_id %in% sample(qcaa_school_id, size = 20),
          enrolments > 0) %>% 
   ggplot(aes(x = completion_year,
-             y = log(enrolments))) +
+             y = enrolments)) +
   geom_point() +
   stat_smooth(method = "lm",
               colour = "orange") +
@@ -77,224 +79,61 @@ spec_math_long %>%
   theme(axis.text.x = element_text(angle = 90))
 ```
 
-- Figure fits a linear curve for log(`enrolments`) for a random sample of 20 schools
-- One advantage of the linear model within school is that each school's data points can be summarise with two summary statistics (intercept and slope), which is helpful to help understand the data better.
-  - the intercept conveys that school's enrolment when the subject was first introduced while
-  - the slope conveys the school's yearly average increase in enrolment over the period in which specialist mathematics is running
-- For instance, the figure above suggests that enrolments in school 2 (top left) and school 591 (bottom right) appears to have a larger increase in enrolments over the years the specialist mathematics have been introduced.
-- Figure also demonstrates that each school can introduce (or end) specialist mathematics at different years
-  - School 591 only introduced the subject in 2016
-  - School 113 introduced the subject in 1995 and discontinued the subject in 2005
-  
-```{r}
-spec_math %>%
-  group_by(qcaa_school_id, completion_year) %>% 
-  mutate(enrolments = mean(c(year_11_enrolments, year_12_enrolments), na.rm = T)) %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id)) +
-  facet_wrap(~ sector)
-```
+With reference to the [first step](#step-one), Figure \@ref(fig:spec-math-eda) fits a linear model for enrolments for a random sample of 20 schools. A myriad of patterns can be obtained from this. For instance, enrolments in school 2 (top left) appears to have significant larger increase in enrolments over the years the specialist mathematics have been introduced. Most schools showed relatively small enrolment numbers of less than 50, however school 2 and 175 showed rather large enrolment numbers for each cohort. It also demonstrates that each school can introduce (or end) specialist mathematics at different years -- *e.g.* School 591 only introduced the subject in 2016, and School 113 introduced the subject in 1995 and discontinued the subject in 2005.
 
-```{r}
-spec_math_long %>% 
-  filter(enrolments != 0) %>% 
-  group_by(qcaa_district) %>% 
-  summarise(lm = tidy(lm(log(enrolments) ~ completion_year)),
-            .groups = "drop") 
+## Getting the data ready for modelling
 
-spec_math_long %>% 
-  group_by(qcaa_district) %>% 
-  summarise(tidy(lm(enrolments ~ completion_year)),
-            .groups = "drop") %>% 
-  select(qcaa_district, term, estimate) %>% 
-  mutate(term = if_else(term == "completion_year",
-                        "slope",
-                        term)) %>% 
-  ggplot() +
-  geom_point(aes(x = qcaa_district,
-                   y = estimate)) +
-  facet_wrap(~ term,
-             scales = "free") 
+### Removing zero enrolments
 
-spec_math_long %>% 
-  group_by(school_postcode) %>% 
-  summarise(tidy(lm(enrolments ~ completion_year)),
-            .groups = "drop") %>% 
-  select(school_postcode, term, estimate) %>% 
-  mutate(term = if_else(term == "completion_year",
-                        "slope",
-                        term)) %>% 
-  pivot_wider(names_from = term,
-              values_from = estimate)  %>% 
-  rename(intercept = `(Intercept)`) %>% 
-  ggplot() +
-  geom_point(aes(x = slope,
-                 y = intercept))
-```
+All zero enrolments in a given year will be removed for modelling. As aforementioned, most of the zero enrolments in year 11 (refer to Figure \@ref(fig:year-11-enrolments-all)) were attributed to the 2007 prep year cohort while zero enrolments in year 12 relates to the first year in which a school introduces the subject. Other zero enrolments mostly relates to smaller schools with little to no enrolments in the subject for a given year. These zero enrolments will be removed for modelling purposes.
 
-```{r}
-spec_math %>%
-  group_by(qcaa_school_id, completion_year) %>% 
-  mutate(enrolments = mean(c(year_11_enrolments, year_12_enrolments), na.rm = T)) %>% 
-  ungroup() %>% 
-  filter(school_postcode %in% sample(school_postcode, size = 20),
-         enrolments > 0) %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id)) +
-  facet_wrap(~ school_postcode)
-```
+### Linearise response variable using log transformation
 
-```{r}
-spec_math_long %>% 
-  filter(school_postcode %in% sample(school_postcode, size = 20),
-         enrolments > 0)  %>% 
-  ggplot() +
-  geom_boxplot(aes(x = factor(1),
-                   y = enrolments,
-                   fill = sector)) +
-  facet_wrap(~ school_postcode,
-             scales = "free")
-```
-
-
-  
-```{r}
-# Total schools from 1995 to 2020
-spec_math %>% 
-  group_by(completion_year) %>% 
-  summarise(total_schools = n_distinct(qcaa_school_id)) %>%
-  ggplot() +
-  geom_col(aes(x = completion_year,
-               y = total_schools)) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 1),
-                     labels = seq(1992, 2022, by = 1)) +
-  theme(axis.text.x = element_text(angle = 90)) +
-  labs(title = "Total number of schools with Specialist Mathematics Subject",
-       x = "Year",
-       y = "Total Schools")
-```
-
-- Starting from 1995, there were considerably more schools that introduced Specialist Mathematics into their course syllabus.
-
-
-
-# Getting the data ready for modelling
-
-## Removing graduating cohort 2019
-
-```{r}
-# Year 11 enrolments
-p1 <- spec_math_long %>% 
-  filter(unit == "year_11_enrolments") %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id),
-            alpha = 0.5,
-            colour = "grey40") +
-  facet_wrap(~ unit) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  theme(axis.text.x = element_text(angle = 90),
-        title = element_text(size = 8)) +
-  labs(title = "Enrolments including 2019")
-
-# Year 11 enrolments
-p2 <- spec_math_long %>% 
-  filter(unit == "year_11_enrolments",
-         completion_year != 2019) %>% 
-  ggplot() +
-  geom_line(aes(x = completion_year,
-                y = enrolments,
-                group = qcaa_school_id),
-            alpha = 0.5,
-            colour = "grey40") +
-  facet_wrap(~ unit) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  theme(axis.text.x = element_text(angle = 90),
-        title = element_text(size = 8)) +
-  labs(title = "Enrolments excluding 2019")
-
-p1 / p2
-```
-
-- As the 2019 graduating cohort were part of the Queensland's first Prep Year cohort in 2007, there were significantly lesser enrolments in that year.
-  - Accordingly, 2019 will be removed from the analysis as it is an outlier.
-
-## Linearise response variable using log transformation
-
-```{r}
-p1 <- spec_math_long %>% 
+```{r spec-math-log-scale, fig.cap = "Effects of log transformation for response variable (enrolments) in Specialist Mathematics subject"}
+p1 <- spec_math_long %>%
   ggplot(aes(x = enrolments)) +
-  geom_histogram() +
-  labs(title = "Before log transformation")
+  geom_histogram(binwidth = 15,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 15 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "Before log transformation",
+       x = "Enrolments",
+       y = "Density")
 
 p2 <- spec_math_long %>%
-  ggplot(aes(x = log(enrolments))) +
-  geom_histogram() +
-  labs(title = "After log transformation")
+  ggplot(aes(log(enrolments))) +
+  geom_histogram(binwidth = 0.3,
+                 fill = "white",
+                 colour = "black") +
+  geom_density(aes(y = 0.3 * ..count..),
+               fill = "steelblue",
+               alpha = 0.4) +
+  labs(title = "After log transformation",
+       x = "Log Enrolments",
+       y = "Density")
 
 p1 / p2
 ```
 
-- Enrolment numbers are right skewed, which is attributed to the various size of the different schools in Queensland
-- As multilevel model assumes normality in the error terms, a log transformation is utilised to allow models to be estimated by the linear mixed models
-  - A log transformation is suitable in this context as enrolment numbers are by nature, a positive number
-
+As multilevel model assumes normality in the error terms, a log transformation is utilised to allow models to be estimated by the linear mixed models. The log transformation allows enrolment numbers to be approximately normally distributed (Figure \@ref(fig:spec-math-log-scale)).
 
 ```{r}
-p1 <- spec_math %>% 
-  ggplot() +
-  geom_point(aes(x = year_11_enrolments,
-                 y = year_12_enrolments),
-             alpha = 0.3) +
-  geom_abline(slope = 1,
-              colour = "red") +
-  labs(title = "All observations") +
-  theme(title = element_text(size = 8))
+# --- Cleaning script
 
-p2 <- spec_math %>% 
-  filter(year_12_enrolments != 0,
-         year_11_enrolments != 0) %>% 
-  ggplot() +
-  geom_point(aes(x = year_11_enrolments,
-                 y = year_12_enrolments),
-             alpha = 0.3) +
-  geom_abline(slope = 1,
-              colour = "red") +
-  labs(title = "Removed obs. with enrolments in Year 11 but not in Year 12 (and vice versa)") +
-  theme(title = element_text(size = 8))
-        
-p1 / p2
-```
-
-- Red line shows year 11 enrolments = year 12 enrolments
-- Some schools offered Specialist mathematics subjects for Year 11, but not for Year 12 (and vice versa)
-  - These zero enrolment numbers will be removed from the analysis
-
-```{r}
 spec_math <- spec_math %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
-  # Remove schools that offer subject in one of Year 11 or Year 12 only
+  # Remove zero enrolments
   filter(year_12_enrolments != 0,
          year_11_enrolments != 0)
 
 spec_math_long <- spec_math_long %>% 
   # Remove graduating cohort 2019 
   filter(completion_year != 2019) %>% 
-  # Remove schools that offer subject in one of Year 11 or Year 12 only
-  filter(enrolments != 0)
-```
-
-```{r}
-# Rescale `completion_year` variable
-spec_math_long <- spec_math_long %>%
+  # Remove zero enrolments
+  filter(enrolments != 0) %>% 
   # Recentre year
   mutate(year92 = completion_year - min(completion_year),
          .before = completion_year) %>% 
@@ -302,31 +141,8 @@ spec_math_long <- spec_math_long %>%
   mutate(log_enrolments = log(enrolments))
 ```
 
-- Often helpful to *rescale* time variable so the first measurement occasion is the *zero point*
-  - Thereby giving the intercept the interpretation of baseline, or initial status on the dependent variable (*i.e.* 0 as the commencement of the Specialist Mathematics subject)
-- In this case, `year92` represents the zero point (*i.e.* when the first specialist mathematics subject was first introduced)
-  
-# Methodology
+## Unconditional means model
 
-- Start with unconditional means model
-  - Predictors are then added to the model in a forward stepwise approach
-
-- Overall fit of the model is considered throughout the model building process
-  
-# Unconditional means model
-
-- When building a multilevel model, we begin with a null or empty model, where there are no predictors at any level
-
-- Null model provides useful information in understanding the structure of the data
-  - Obtain estimates of residuals & intercept variance when only clustering by postcode
-  - Assess the amount of variation at each level at each level ($\sigma^2$), and among the clusters ($\tau^2$)
-  - Compute intraclass correlation 
-  
-- Using the dataset, the resulting longitudinal data would be nested at 3 level
-  - Level 1 refers to a single measurement in time
-  - Level 2 refers to the individual schools nested within different postcodes
-  - Level 3 refers to the different school postcodes (`school_postcode`) or district (`qcaa_district`)
-  
 ```{r}
 # ----- Fit possible null model
 
@@ -343,8 +159,7 @@ model0.2 <- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
                  data = spec_math_long)
 ```
 
-
-```{r}
+```{r spec-math-init-models}
 # Obtain AIC for each null model
 model0_AIC <- AIC(model0.0, model0.1, model0.2) 
 
@@ -355,74 +170,18 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable() %>% 
+  kable(caption = "AIC values for all candidate models for Specialist Mathematics") %>% 
   kable_styling(full_width = FALSE,
-                bootstrap_options = c("hovered", "striped"))
+                bootstrap_options = c("hover", "striped"))
 ```
 
-- Based on the AIC values, the nested (three-level) model performs better than the two-level multilevel model
-  - Therefore, we will pick `model0.2`, which corresponds to the model where schools are nested within districts 
-  
-```{r}
+As per [step 3](#step-three), the three potential models are fitted, with the AIC shown in Table \@ref(tab:spec-math-init-models). Based on the AIC, `model0.2`, corresponding the schools nested within districts is the best model and will be used in the subsequent analysis. 
+
+### Intraclass correlation ($ICC$)
+
+```{r, eval=FALSE, echo=TRUE}
 summary(model0.2)
 ```
-
-The unconditional means three-level model can be expressed as:
-
-- Level one (time point within schools)
-  $$Y_{tij} = \pi_{0ij} + \epsilon_{tij}$$
-  
-- Level two (schools within district)
-  $$\pi_{0ij} = \beta_{00j} + u_{0ij}$$
-  
-- Level three (districts)
-  $$\beta_{00j} = \gamma_{000} + r_{00j}$$
-  
-In this case, school districts are considered to be independent, but school from the same districts are correlated (in addition to measurements at different time points for the same school)
-
-At level one:
-
-- $y_{tij}$: log `enrolments` of school $i$ from district $j$ at time $t$
-- $\pi_{0ij}$: True mean log `enrolments` of school $i$ from district $j$ across all time points
-  - Note: this is not a model parameter, as we further model $\pi_{0ij}$ at level two
-- $\epsilon_{tij}$: The difference between the observed enrolment ($Y_{tij}$) to the mean log enrolments for school $i$ in district $j$
-
-At level two:
-
-- $\beta_{00j}$: True mean log enrolment for district $j$ across all schools from that district
-  - This is not a model parameter, as we further model $a_i$ at level three
-- $u_{0ij}$: Difference between log enrolments of school $i$ from district $j$ from the mean log enrolments of all schools in district $j$
-
-At level three:
-
-- $\gamma_{000}$: Fixed effects model parameter representing the true mean log enrolments across all schools, districts and time points
-- $r_{00j}$: Describes how far the mean log enrolments of all observations in district $j$ is from the overall mean log enrolments across all districts, schools and time points
-  - Note: none of the error terms ($\epsilon_{tij}$, $r_{0ij}$ amd $u_{00j}$) are model parameters; they simply account for differences between the observed data and expected values in the model
-
-Combining level 1, 2 and 3, the **composite model specification form** can be obtained: 
-
-$$\begin{aligned} 
-
-  Y_{ij} & = \pi_{0ij} + \epsilon_{tij} \\
-         & = \beta_{00j} + u_{0ij} + \epsilon_{tij} \\
-         & = \gamma_{000} + r_{00j} + u_{0ij} + \epsilon_{tij} \\
-
-\end{aligned}$$
-
-where,
-
-$$\begin{aligned} 
-  
-  \epsilon_{tij} & \sim N(0, \sigma^2) \\
-  u_{0ij}        & \sim N(0, \tau^2_{00}) \\
-  r_{00j}        & \sim N(0, \phi^2_{00}) 
-  
-
-\end{aligned}$$
-
-- $\epsilon_{tij}$: Variance over time within schools
-- $\tau^2_{00}$: Variance between schools from the same district
-- $\phi^2_{00}$: Variance across districts
 
 ```{r}
 # --- Model summary output
@@ -430,45 +189,38 @@ $$\begin{aligned}
 # Extract variance and correlation component
 vc <- VarCorr(model0.2)
 
+cat("Random effects:", "\n")
+
 # Print variance and standard deviation of random effects
 print(vc, comp = c("Variance", "Std.Dev."))
 
+cat("\n","Fixed effects:", "\n")
 # Extract fixed effects coefficient
 coef(summary(model0.2))
 
 # Print grouping structure
-cat(" Number of Level Two groups = ",
+cat("\n",
+    "Number of schools (level-two group) =",
     summary(model0.2)$ngrps[1], "\n", 
-    "Number of Level Three groups = ",
+    "Number of district (level-three group) =",
     summary(model0.2)$ngrps[2])
 ```
 
+This model will takes into account 422 schools nested in 13 districts. In a three-level multilevel model, two intraclass correlations can be obtained using the model summary output above:
 
-## Intraclass correlation ($ICC$)
+The **level-two ICC** relates to the correlation between school $i$ from district $k$ in time $t$ and in time $t^* \ne t$:
 
-In a three-level model, two intraclass correlations can be obtained. Intraclass correlation can be conceptualised as the correlation between enrolments of two schools randomly selected from a cluster or as the amount of variance explained by those groupings (similar to an $R^2$).
-
-The **level-two ICC** is the correlation between a school $i$ from a certain district $k$ in time $t$ and in time $t^*$:
-
-$$ICC(school) = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{108.326}{(108.326 + 25.161 + 81.745)} = 0.5033$$
+$$\text{Level-two ICC} = \frac{\tau^{2}_{00}}{\tau^{2}_{00} + \phi^{2}_{00} + \sigma^2} = \frac{0.4213}{(0.4213 + 0.1116 + 0.2772)} = 0.5201$$
   
-- This can be conceptualised as the correlation between enrolments of two randomly selected observations from the same district
-  - *i.e.* 50.33% of the total variability is due to the differences between schools from the same district
+This can be conceptualised as the correlation between enrolments of two random draws from the same school at two different years. In other words, 52.01% of the total variability is attributable to the changes overtime within schools.
 
+The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific district $j$ in time $t$ and time $t^* \ne t$. 
+
+$$\text{Level-three ICC} = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{0.1116}{(0.4213 + 0.1116 + 0.2772)} = 0.1378$$
+
+Similarly, this can be conceptualised as the correlation between enrolments of two randomly selected schools from the same district -- *i.e.* 11.70% of the total variability is due to the difference between districts.
   
-The **level-three ICC** refers to the correlation between different schools $i$ and $i^*$ from a specific school $j$. 
-
-$$ICC(school) = \frac{\phi^2_{00}}{\tau^2_{00} + \phi^2_{00} + \sigma^2} = \frac{25.161}{(108.326 + 25.161 + 81.745)} = 0.1170$$
-- Similarly, this can be conceptualised as the correlation between enrolments of two randomly selected schools from a different district
-  - *i.e.* 11.70% of the total variability is due to the difference between districts.
-
-  
-# Unconditional Growth model
-
-- Accordingly, this will explore unconditional growth models, where time is incorporated as a linear growth at level one (with no predictors at level two or three) to reduce unexplained variability within schools.
-  - This is known as the "unconditional growth model".
-  - Note that `year92` is centered, `year92` = `completion_year` - min(`completion_year`)
-- This model allows us to assess how much within-school variability can be attributed to the systematic changes over time
+## Unconditional growth model
 
 ```{r}
 # Unconditional growth model
@@ -480,67 +232,12 @@ model1.0 <- lmer(log_enrolments ~ year92 +
                 data = spec_math_long)
 ```
 
-The unconditional growth model can be expressed as:
 
-- Level one (time point within schools)
-  $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
+The unconditional growth model introduces the time predictor at level one, the model specification can be found in [step 4](#step-four). This allows for assessing within-school variability which can be attributed to linear changes over time. Furthermore, variability in intercepts and slopes can be obtained to compare schools within the same districts, and schools from different districts.
 
-- Level two (schools within district)
-  $$\pi_{0ij} = \beta_{00j} + u_{0ij} \\
-    \pi_{1ij} = \beta_{10j} + u_{1ij}$$
-  
-- Level three (districts)
-  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
-    \beta_{10j} = \gamma_{100} + r_{10j}$$
-
-
-As compared to the null-model, the between-school and between-district variability are now partitioned into variability in initial status ($\tau^2_{00}$ and $\phi^2_{00j}$) and variability in rates of change ($\tau^2_{10}$ and $\phi^2_{10}_{00j}$). To elaborate:
-
-At level one:
-
-- The level one trajectory for school $i$ in district $j$ is assumed to be linear, with intercept $\pi_{0ij}$ and slope (growth rate) $\pi_{1ij}$ 
-  - With $\epsilon_{tij}$ capturing the deviation between the true growth trajectory of and its observed log(enrolments)
-
-At level two:
-
-- $\beta_{00}$ represents the true intercept and $\beta_{10}$ represents the true mean slope for all plants for school $i$
-- The random effects $u_{0ij}$ and $u_{1ij}$ captures the deviation between school $i$'s true growth trajectory and the mean intercept for and slope for school $i$
-  - The deviations in intercept and slope at level tow are allowed to be correlated through the covariance parameter $\tau_{01}$
-
-At level three:
-
-- $\gamma_{000}$ is the true mean intercept while $\gamma_{100}$ is the true mean yearly growth rate for over all schools
-- $r_{00j}$ and $r_{10j}$ captures the deviation between school $i$ true overall growth trajectory and population mean intercept and slope
-
-In combining the levels, the full composite model may be obtained:
-
-$$\begin{aligned}
-  Y_{tij} &= \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
-          &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year92_{tij} +  \epsilon_{tij} \\
-          &= (\gamma_{000} + r_{00j} + u_{0ij})  + (\gamma_{100} + r_{10j} + u_{1ij})year92_{tij} + \epsilon_{tij} \\
-          &= [\gamma_{000} + \gamma_{100}year92_{tij}] + [r_{00j} + u_{0ij} + \epsilon_{tij} + (r_{10j} + u_{1ij})year92_{tij}]
-  
-\end{aligned}$$
-
-With, $\epsilon_{ijk} \sim N(0, \sigma^2)$,
-
-$$\left( \begin{matrix} u_{0j} \\ u_{1j} \end{matrix} \right) 
-  \sim N 
-  \left( 
-    \begin{matrix} 0 \\ 0 \end{matrix} 
-    \begin{matrix} , \end{matrix}
-    \begin{matrix} \tau^2_{00} & \tau_{01} \\ \tau_{01} & \tau^{2}_{10} \end{matrix}
-  \right)$$
-  
-$$\left( \begin{matrix} r_{00j} \\ r_{10j} \end{matrix} \right) 
-  \sim N 
-  \left( 
-    \begin{matrix} 0 \\ 0 \end{matrix} 
-    \begin{matrix} , \end{matrix}
-    \begin{matrix} \phi^2_{00} &  \\ \phi_{01} & \phi^{2}_{10} \end{matrix}
-  \right)$$
-
-
+```{r, eval=FALSE, echo=TRUE}
+summary(model1.0)
+```
 
 ```{r}
 # --- Model summary output
@@ -561,17 +258,12 @@ cat(" Number of Level Two groups = ",
     summary(model1.0)$ngrps[2])
 ```
 
-- $\pi_{0ij}$ = 1.7848: Initial status for school $i$ in district $j$ (*i.e.* expected log enrolments when time = 0)
-- $\pi_{1ij}$ = 0.0168: Growth rate for student $i$ in school $j$
-- $\epsilon_{tij$ = 0.2093: Residual associated with student score at a specific time point 
+- $\pi_{0ij}$ = 1.7969: Initial status for school $i$ in district $j$ (*i.e.* expected log enrolments when time = 0)
+- $\pi_{1ij}$ = 0.0165: Growth rate for school $i$ in district $j$
+- $\epsilon_{tij}$ = 0.2093: Variance in within-school residuals after accounting for linear growth overtime
 
-- $\tau^2_{00}$ = 7964: Variation in initial status within districts
-- $\tau^2_{10}$ = 0.0011: Variation in growth rate among schools within districts
-- $\tau_01$: Correlation among the initial status and the rate of change in log enrolments
+When the subject was first introduced in 1992, schools were expected to have 6.0309 ($e^{1.7848}$) enrolments, on average. This enrolments were rather low as there were only a small fraction of schools that offered the subject in 1992 (as demonstrated in Figure \@ref(fig:participating-schools)). On average, enrolments were expected to increase by 1.6614\% ($(e^{0.0164778} - 1)\times100$) per year. The estimated within-schools variance decreased by 24.45\% (0.2772 to 0.2093), implying that 24.5\% of within-school variability can be explained by the linear growth over time.
 
-- $\phi^2_{00}$ = 0.0215: Variation in initial status between districts
-- $\phi^2_{10}$ = 0.0001: Variation in growth rate between districts
-- $\phi_{01}$ = 1.00: Correlation in initial status and rate of change in log enrolments are perfectly correlated
 
 ## Dealing with boundary constraints
 
@@ -587,30 +279,11 @@ model1.1 <- lmer(log_enrolments ~ year92 +
                 data = spec_math_long)
 ```
 
-- A singular fit is observed in the model as the correlation between the intercept and slope between districts are perfectly correlation (*i.e.* $\phi_{01}$ = 1).
-  - This may suggest that the model is overfitted, that is, the random effects structure is too complex to be supported by the data
-- Naturally, the higher-order random effects (*e.g.* random slope of the third level (between district))
+A singular fit is observed in the model as the correlation between the intercept and slope between districts are perfectly correlation (*i.e.* $\phi_{01}$ = 1). This may suggest that the model is overfitted -- *i.e.* the random effects structure is too complex to be supported by the data and may require some re-parameterisation. Naturally, the higher-order random effects (*e.g.* random slope of the third level (between district)) can be removed, especially where the variance and correlation terms are estimated on the boundaries (*add bookdown reference*).
 
-  
-- Here, we removed two parameters by setting the variance components $\phi^2_{10}$ = $\phi_{01}$ equal to zero.
-- This produced a more stable model, where the growth rate for districts $j$ are assumed to be fixed
-  - *i.e.* no error term associated with the model for mean growth rate $\beta_{10j}$ at the district level $j$ and all districts
-- This implies that the error assumption at level three now follows a univariate normal distribution where $r_{00j} \sim N(0, \phi_{00}^{2})$
-
-- Level one and level two will be identical to that of `model1.0`, however, the random slope for level 3 will be removed 
-
-The new Level three (districts):
-  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
-    \beta_{10j} = \gamma_{100} $$
-    
-And therefore composite model:
-$$\begin{aligned}
-  Y_{tij} &= \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
-          &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year92_{tij} +  \epsilon_{tij} \\
-          &= (\gamma_{000} + r_{00j} + u_{0ij}) + (\gamma_{100} + u_{1ij})year92_{tij} + \epsilon_{tij} \\
-          &= \left[\gamma_{000} + \gamma_{100}year92_{tij}  \right] + 
-             \left[r_{00j} + u_{0ij} + u_{1ij}year92_{tij} + \epsilon_{tij} \right]
-\end{aligned}$$
+```{r, eval=FALSE, echo=TRUE}
+summary(model1.1)
+```
 
 ```{r}
 # --- Model summary output
@@ -631,394 +304,33 @@ cat(" Number of Level Two groups = ",
     summary(model1.1)$ngrps[2])
 ```
 
-- The model is now stable and free of boundary constraints.
-- As seen from the output of `model1.1`, the fixed effects remain similar.
+To elaborate, two parameters were removed by setting variance components $\phi^2_{10}$ = $\phi_{01}$ equal to zero Which indirectly assumes that the growth rate for district $j$ to be fixed. As shown in the output above, this produced a more stable model and is free from any boundary constraints. As compared to the unconditional growth model (`model1.0`), the fixed effects remained rather similar. 
 
-# Parametric bootstrap
+Level one and level two will be identical to the unconditional growth model (`model1.0`), however, the random slope for level 3 will be removed. This implies that the error assumption at level three now follows a univariate normal distribution where $r_{00j} \sim N(0, \phi_{00}^{2})$.
 
-```{r}
-bootstrapAnova <- function(mA, m0, B = 1000){
-  oneBootstrap <- function(m0, mA){
-    
-    # Regenerate new set of response with the null model
-    d <- drop(simulate(m0))
-    
-    # Fit both null and full model to the new data
-    m2 <- refit(mA, newresp=d)
-    m1 <- refit(m0, newresp=d)
-    
-    # Return chisq test statistic
-    return(anova(m2,m1)$Chisq[2])
-  }  
-  
-  # Conduct test 1,000 times and
-  # Store chisq test statistic for each iteration
-  nulldist <- replicate(B, oneBootstrap(m0, mA))
-  
-  # chisq statistic based on the actual models 
-  ret <- anova(mA, m0)
-  
-  # Obtain p-value 
-  # Proportion of times simulated chisq statistic > actual chisq test statistic
-  ret$"Pr(>Chisq)"[2] <- mean(ret$Chisq[2] < nulldist)
-  
-  # Change Pr(>Chisq) to Pr_boot(>Chisq)
-  names(ret)[8] <- "Pr_boot(>Chisq)"
-  
-  # Change heading of model output
-  attr(ret, "heading") <- c(attr(ret, "heading")[1], 
-    paste("Parametric bootstrap with", B,"samples."),
-    attr(ret, "heading")[-1])
-  
-  attr(ret, "nulldist") <- nulldist
-  return(ret)
-}
-```
-
-```{r}
-# Refit model with MLE estimates
-
-# Full model
-model1.0_ml <- lmer(log_enrolments ~ year92 + 
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (year92 | qcaa_district),
-                REML = FALSE,
-                data = spec_math_long)
-
-# Null model (smaller model)
-model1.1_ml <- lmer(log_enrolments ~ year92 + 
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (1 | qcaa_district),
-                REML = FALSE,
-                data = spec_math_long)
-```
-
-
-```{r, eval=FALSE, warning=FALSE, message=FALSE}
-bootstrapLRT <- bootstrapAnova(mA = model1.0_ml,
-                               m0 = model1.1_ml, 
-                               B = 1000)
-
-save(bootstrapLRT, file = here::here("data/bootstrapLRT/spec-math-model1.0-vs-model1.1.rda"))
-```
-
-```{r}
-load(file = here::here("data/model1.0-vs-model1.1.rda"))
-```
-
-```{r}
-nullLRT <- attr(bootstrapLRT, "nulldist")
-x <- seq(0,max(nullLRT),length=100)
-y <- dchisq(x = x,
-         df = 2)
-
-nullLRT.1 <- as.data.frame(cbind(nullLRT=nullLRT,x=x,y=y))
-
-ggplot(nullLRT.1) + 
-  geom_histogram(aes(x = nullLRT, y = ..density..),
-                 bins=25,color="black",fill="white") +   geom_vline(xintercept = 0, size = 1) + 
-  geom_line(aes(x = x, y = y)) +
-  scale_x_continuous(limits = c(-0.5, 10)) +
-  labs(y="Density",
-       x="Likelihood Ratio Test Statistics from Null Distribution")
-```
-
-
-
-# Adding predictors to the model (final updated)
-
-- **Add level two predicts** - those variables which differ by school, but which remain constant for a given school over time --- such as `sector` (catholic, government, independent), `unit` (year 11 and year 12 enrolments)
-  - *Note*: we do not have level 3 predictors, as effects of enrolments were relevant to each school (not districts).
-
-## Uncontrolled effects of `sector`
-
-- Level one model will remain identical to that of `model1.1` 
-$$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
-
-- Level two (schools within districts) will contain new predictor(`sector`)
-  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + u_{0ij} \\
-    \pi_{1ij} = \beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij}$$
-    
-- Level three (districts)
+The new Level three (districts):
   $$\beta_{00j} = \gamma_{000} + r_{00j} \\
-    \beta_{01j} = \gamma_{010} + r_{01j} \\
-    \beta_{10j} = \gamma_{100} \\
-    \beta_{11j} = \gamma_{110}$$
-
-Therefore, the composite model can be written as
-$$\begin{aligned} 
+    \beta_{10j} = \gamma_{100} $$
+    
+And therefore composite model:
+$$\begin{aligned}
   Y_{tij} &= \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\
-          &= (\beta_{00j} + \beta_{01}sector_{ij} + u_{0ij}) +
-             (\beta_{10j} + \beta_{11}sector_{ij} + u_{1ij})year92_{tij} +
-             \epsilon_{tij} \\ 
-          &= (\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + u_{0ij}) + \
-             (\gamma_{100} + \gamma_{110}sector_{ij} + u_{1ij})year92_{tij} + \epsilon_{tij} \\
-          &= (\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{100}year92{tij} + \gamma_{110}sector_{ij}year92_{tij}) +
-             (r_{00j} + r_{01j}sector_{ij} + u_{0ij} + u_{1ij}year92_{tij} + \epsilon_{tij})
+          &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year92_{tij} +  \epsilon_{tij} \\
+          &= (\gamma_{000} + r_{00j} + u_{0ij}) + (\gamma_{100} + u_{1ij})year92_{tij} + \epsilon_{tij} \\
+          &= \left[\gamma_{000} + \gamma_{100}year92_{tij}  \right] + 
+             \left[r_{00j} + u_{0ij} + u_{1ij}year92_{tij} + \epsilon_{tij} \right]
 \end{aligned}$$
 
-```{r}
-# Add sector
-model2.0 <- lmer(log_enrolments ~ year92 + sector + sector*year92 +
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (1 | qcaa_district),
-                REML = TRUE,
-                control = lmerControl(optimizer = "bobyqa"),
-                data = spec_math_long)
-```
 
-### Fixed effects
+## Testing Fixed effects
 
-```{r}
-fixef1.1 <- fixef(model1.1)
-
-fit1.1 <- 
-  tibble(
-    
-    # See fixed effects of composite model
-    # gamma_{00} + year08 * gamma_{01}
-    fit = fixef1.1[[1]] + c(0:30)*fixef1.1[[2]],
-    
-    # Add centered year variable in model
-    year92 = c(0:30),
-    
-    # Add actual completion_year
-    completion_year = year92 + 1992
-    )
-
-p1 <- fit1.1 %>% 
-  ggplot(aes(x = completion_year,
-             y = fit)) +
-  geom_point() +
-  geom_line() +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  scale_y_continuous(limits = c(1.4, 2.4)) +
-  theme(legend.position = c(0.2, 0.85),
-        axis.text.x = element_text(angle = 90)) + 
-  labs(title = "Unconditional Growth (no predictors)",
-       x = "Completion Year",
-       y = "Predicted log(enrolments)")
-```
-
-
-```{r}
-fixef2.0 <- fixef(model2.0)
-
-# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{100}year92_{tij} + \gamma_{110}year92_{tij}
-
-# Catholic (baseline)
-fit_cat2.0 <- fixef2.0[[1]] + fixef2.0[[2]]*c(0:30) 
-
-# Government
-fit_gov2.0 <- fixef2.0[[1]] + fixef2.0[[3]] + fixef2.0[[2]]*c(0:30) + fixef2.0[[5]]
-
-# Independent
-fit_ind2.0 <- fixef2.0[[1]] + fixef2.0[[4]] + fixef2.0[[2]]*c(0:30) + fixef2.0[[6]]
-
-fit2.0 <- 
-  tibble(
-    Catholic = fit_cat2.0,
-    Independent = fit_ind2.0,
-    Government = fit_gov2.0,
-    year92 = 0:30,
-    completion_year = year92 + 1992
-  )
-
-# Convert to long format
-fit2.0 <- fit2.0 %>% 
-  pivot_longer(cols = c(Catholic, Independent, Government),
-               names_to = "sector",
-               values_to = "fit")
-
-p2 <- fit2.0 %>% 
-  ggplot(aes(x = completion_year,
-             y = fit,
-             group = sector,
-             colour = sector)) +
-  geom_line() +
-  scale_colour_discrete_qualitative() +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  # Change y-axis to match with fit1.0
-  scale_y_continuous(limits = c(1.4, 2.4)) +
-  # Change legend position to be on top left 
-  theme(legend.position = "none",
-        axis.text.x = element_text(angle = 90)) +
-  labs(title = "Uncontrolled sector effect",
-       x = "Completion Year",
-       y = "Predicted log(enrolments)")
-```
-
-```{r}
-fit2.0 %>% 
-  ggplot(aes(x = completion_year,
-             y = fit)) +
-  # Fit 1 (no sector predictor)
-  geom_line(data = fit1.0,
-            size = 1) +
-  # geom_point(data = fit1.0) +
-  # Fit 2 (Including sector predictor)
-  geom_line(aes(group = sector,
-                colour = sector),
-            size = 1) +
-  # geom_point((aes(group = sector,
-  #               colour = sector))) +
-  scale_colour_discrete_qualitative() +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  # Change legend position to be on top left 
-  theme(axis.text.x = element_text(angle = 90),
-        legend.position = "bottom") +
-  labs(title = "Uncontrolled sector effect",
-       x = "Completion Year",
-       y = "Predicted log(enrolments)")
-```
-
-## Uncontrolled effects of `sector` and `unit`
-
-```{r}
-model3.0 <- lmer(log_enrolments ~ year92 + sector + sector*year92 + unit + unit*year92 +
-                (year92 | qcaa_district:qcaa_school_id) + 
-                (1 | qcaa_district),
-                REML = TRUE,
-                control = lmerControl(optimizer = "bobyqa"),
-                data = spec_math_long)
-```
-
-- Level one model will remain identical to that of `model1.1` 
-$$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
-
-- Level two (schools within districts) will contain new predictor(`sector`)
-  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + u_{0ij} \\ 
-    \pi_{1ij} = \beta_{10j} + \beta_{11j}sector_{ij} + \beta_{02j}unit_{ij} + u_{1ij}$$
-    
-- Level three (districts)
-  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
-    \beta_{01j} = \gamma_{010} + r_{01j} \\
-    \beta_{02j} = \gamma_{020} + r_{02j} \\
-    \beta_{10j} = \gamma_{100} \\
-    \beta_{11j} = \gamma_{110} \\ 
-    \beta_{12j} = \gamma_{120}$$
-
-Therefore, the composite model can be written as
-$$\begin{aligned} 
-  Y_{tij} &= \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\ 
-          &= (\beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}sector_{ij} +        
-             \beta_{12j}unit_{ij} + u_{1ij})year92_{tij} + \epsilon_{tij} \\ 
-          &= \left[\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + u_{0ij}\right] + 
-             \left[\gamma_{100} + \gamma_{110}sector_{ij} + \gamma_{120}unit_{ij} + u_{1ij} \right]year92 + \epsilon_{tij} \\ 
-          &= \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{100}year92 + \gamma_{110}sector_{ij}year92 +
-             \gamma_{120}unit_{ij}year92\right] + 
-             \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + u_{0ij} + u_{1ij}year92_{tij} + \epsilon_{tij} \right] 
-\end{aligned}$$
-
-```{r}
-fixef(model_f)
-fixef(model_f)
-```
-
-
-```{r}
-# Extract fixed effects for model with unit and sector as predictors
-fixef3.0 <- fixef(model3.0)
-
-# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{100}year92 + \gamma_{110}sector_{ij}year92 + \gamma_{120}unit_{ij}year92 
-
-# Catholic (unit 11)
-fit_cat_unit11 <- 
-  fixef3.0[[1]] + fixef3.0[[2]] * c(0:30)  
-
-# Catholic (unit 12)
-fit_cat_unit12 <-
-  fixef3.0[[1]] + fixef3.0[[5]] + fixef3.0[[2]] * c(0:30) + fixef3.0[[8]] * c(0:30) 
-  
-# Government (unit 11)
-fit_gov_unit11 <-
-  fixef3.0[[1]] + fixef3.0[[3]] + fixef3.0[[2]] * c(0:30) + fixef3.0[[6]] * c(0:30) 
-
-# Government (unit 12)
-fit_gov_unit12 <- 
-  fixef3.0[[1]] + fixef3.0[[3]] + fixef3.0[[5]] + fixef3.0[[2]] * c(0:30) + fixef3.0[[6]] *
-  c(0:30) + fixef3.0[[8]] * c(0:30)
-  
-# Independent (unit 11)
-fit_ind_unit11 <- 
-  fixef3.0[[1]] + fixef3.0[[4]] + fixef3.0[[2]] * c(0:30) + fixef3.0[[7]] * c(0:30) 
-  
-# Independent (unit 12)
-fit_ind_unit12 <-
-  fixef3.0[[1]] + fixef3.0[[4]] + fixef3.0[[5]] + fixef3.0[[2]] * c(0:30) + fixef3.0[[7]] * 
-  c(0:30) + fixef3.0[[8]] * c (0:30)
-```
-
-```{r}
-fit3.0 <-
-  tibble(
-    # Unit 11
-    Catholic_unit11 = fit_cat_unit11,
-    Government_unit11 = fit_gov_unit11,
-    Independent_unit11 = fit_ind_unit11,
-    # Unit 12
-    Catholic_unit12 = fit_cat_unit12,
-    Government_unit12 = fit_gov_unit12,
-    Independent_unit12 = fit_ind_unit12,
-    # Time variables
-    year92 = 0:30,
-    completion_year = year92 + 1992
-  )
-
-fit3.0 <- fit3.0 %>% 
-  pivot_longer(cols = c(Catholic_unit11:Independent_unit12),
-               names_to = "sector_unit",
-               values_to = "fit")
-
-fit3.0 <- fit3.0 %>% 
-  # Separate sector and unit into two variables
-  separate(sector_unit, 
-           into = c("sector", "unit"), 
-           sep = "_",
-           remove = FALSE) # Keep old variable for grouping in plot
-
-p3 <- fit3.0 %>% 
-  ggplot(aes(x = completion_year,
-             y = fit,
-             group = sector_unit,
-             colour = sector)) +
-  geom_line(aes(linetype = unit),
-            size = 1,
-            alpha = 0.7) +
-  scale_colour_discrete_qualitative() +
-  labs(title = "Uncontrolled effects of sector and unit",
-       x = "Completion Year",
-       y = "Predicted log enrolments") +
-  theme(legend.position = "bottom",
-        legend.direction = "vertical",
-        axis.text.x = element_text(angle = 90)) +
-  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
-                     labels = seq(1992, 2022, by = 2)) +
-  scale_y_continuous(limits = c(1.4, 2.4)) 
-```
-
-```{r, fig.height = 6}
-(p2 / p3) + 
-  theme(legend.position = "bottom") + plot_layout(guides = "collect")
-```
-
-# Testing Fixed effects
-
-
-- Criterion-based approach to model selection. 
-- *Note*: when computing AIC, maximum likelihood (as opposed to REML) estimates are required.
-
-Specify all models we wish to consider:
 
 ```{r, warning=FALSE}
 # Include all fixed predictors & set to MLE estimates
 model4.0 <- lmer(log_enrolments ~ sector*unit*year92 + (year92 | qcaa_district:qcaa_school_id) + 
                 (1 | qcaa_district), 
      data = spec_math_long,
-     control = lmerControl(optimizer = "Nelder_Mead"),
+     control = lmerControl(optimizer = "bobyqa"),
      REML = FALSE)
 
 # ----- Specify all models with different fixed effects
@@ -1058,8 +370,8 @@ model4.9 <- update(model4.8, . ~. - unit)
 model4.10 <- update(model4.8, . ~. - sector)
 ```
 
-```{r}
-# ANOVA test
+```{r spec-math-test-fixef}
+# anova() used to extract AIC, BIC, and log-likelihood
 model_anova <- anova(
   model4.0,
   model4.1,
@@ -1078,38 +390,21 @@ model_anova <- anova(
  
 model_anova %>% 
   as_tibble() %>% 
-  select(npar, AIC, BIC, logLik) %>% 
+  select(AIC) %>% 
   mutate(model = rownames(model_anova),
-         .before = npar) %>% 
-  arrange(AIC)
+         .before = AIC) %>% 
+  arrange(AIC) %>% 
+  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
+  kable_styling(full_width = FALSE)
 ```
 
-- Note: `anova()` output produces $\chi^2$ test for comparing the models.
-  - However, this is not correct as the sequence of models is not nested & the test is inaccurate due to the nested structure of the model.
-- Therefore, we will use AIC and BIc to compare models.
-  - `model4.4` has the best AIC and BIC, therefore, this model will be chosen.
+As highlighted in [step 6](#step-six), `sector` and `unit` will be added as predictors to the model. The largest possible model will be fitted, before removing fixed effects one by one while recording the AIC for each model. In this case, `model4.0` corresponds to the largest possible model while `model4.10` is the smallest possible model. The model with the optimal (lowest) AIC is `model4.4` (Table \@ref(tab:spec-math-test-fixef)). The next section will test the selected model's random effects to build the final model.
 
-```{r}
-summary(model4.4)
-```
+## Testing random effects with parametric bootstrpa
 
-# Parametric bootstrap to test random effects
+This step will not be undertaken, as the random slope will not be included at level three as a boundary constraint was found in the unconditional growth model, indicating that the model will be overfitted if random slopes were included at level three.
 
-- Examine if simplified version of model (with fewer random effects) might be preferable
-  - Remove random slope ($v_i$) in model F1 to create model F0.
-  - Remove $u_{1j}$ is equivalent to setting $\tau^2_1 = 0$ and $\rho_{01} = 0$
-- Provides better approximate the distribution of the likelihood test statistic and produce more accurate p-values by simulating data under the null hypothesis.
-
-
-    (1) Fit null model (`F0`) to obtain estimated fixed effects & variance components (this is the *"parametric"* part)
-    (2) Use estimated fixed effects & variance components from null model to regenerate new set of response (log(`enrolments`)) & associated predictors for each observations as the original dataset (this is the *"bootstrap"* part)
-    (3) Fit both reduced model (`F0`) and the full model (`F1`) to the new data
-    (4) Compute likelihood ratio test statistic comparing Models F0 and F1
-    (5) Repeat 2-4 a large number of times (*e.g.* 1,000)
-    (6) Produce histogram of likelihood ratio statistics to illustrate its behaviour when null hypothesis is true
-    (7) Compute $p$-value = p-value for comparing full and null model can be approximated by finding the proportion of likelihood ratio test statistics generated under the null model which exceed our observed likelihood ratio test 
-
-```{r}
+```{r, eval=FALSE}
 # Best model based on AIC and BIC
 
 # Proposed model
@@ -1129,7 +424,7 @@ bnull <- lmer(log_enrolments ~ sector + sector:year92 + unit + year92 +
 actual <- 2*(logLik(balt) - logLik(bnull))
 ```
 
-```{r}
+```{r, eval=FALSE}
 bootstrapAnova <- function(mA, m0, B = 1000){
   oneBootstrap <- function(m0, mA){
     
@@ -1173,13 +468,18 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
                                m0 = bnull, 
                                B = 1000)
 
-save(bootstrapLRT, file = here::here("data/bootstrapLRT/spec-math-model5.0-vs-model5.1.rda"))
+save(bootstrapLRT, file = here::here("data/bootstrapLRT/spec-math.rda"))
 ```
 
-
 ```{r}
-load(here::here("data/bootstrapLRT/spec-math-model5.0-vs-model5.1.rda"))
+load(here::here("data/bootstrapLRT/spec-math.rda"))
 
+as_tibble(bootstrapLRT) %>% 
+  kable() %>% 
+  kable_styling(full_width = FALSE)
+```
+
+```{r spec-math-bootstrapLRT, eval=FALSE}
 nullLRT = attr(bootstrapLRT, "nulldist")
 x = seq(0, max(nullLRT), length = 100)
 y = dchisq(x, 2)
@@ -1195,50 +495,47 @@ ggplot(nullLRT.1) +
   ) + 
   # geom_vline(xintercept = 1000, size = 1) +
   geom_line(aes(x = x, y = y)) +
-  # xlim(c(-.5,10)) +
-  labs(y = "Density",
+  labs(title = "Likelihood ratio test statistic from null distribution, overlaid by the chi-square dsitribution",
+       y = "Density",
        x = "Likelihood Ratio Test Statistics from Null Distribution") 
 ```
 
-- Actual likelihood ratio test statistic: 2291.42.
-  - Therefore, we have overwhelming statistical evidence that suggest that the larger model (including random slope) is better than the smaller model.
   
-# Confidence interval
-
-The parametric bootstrap is utilised to construct confidence intervals for the random effects:
-
-**Step 1**: Simulate data from the proposed model
-
-**Step 2**: Refit the model using the new responses from the simulated data & estimate its parameters
-
-**Step 3**: Repeat step 1 and 2 for a large number of times, storing the results each time
-
-**Step 4**: Compute quantiles of the bootstrapped estimated to compute the estimated confidence intervals
-
-If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level.
+## Confidence interval
 
 ```{r}
-# Fit best model with restricted maximum likelihood
+# Re-fit best model with restricted maximum likelihood
 model_f <- lmer(log_enrolments ~ sector + sector:year92 + unit + year92 +
                   (year92 | qcaa_district:qcaa_school_id) + (1 | qcaa_district),
              REML = TRUE,
-             control = lmerControl(optimizer = "Nelder_Mead"),
+             control = lmerControl(optimizer = "bobyqa"),
              data = spec_math_long)
-
-summary(model_f)
 ```
 
 ```{r, eval=FALSE}
-confint(model_f,
-        method = "boot",
-        oldNames = FALSE)
+confint_f <- confint(model_f,
+                     method = "boot",
+                     oldNames = FALSE)
+
+save(confint_f, file = here::here("data/confint/spec-math.rda"))
 ```
 
-Confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+```{r}
+load(here::here("data/confint/spec-math.rda"))
 
-# Interpreting final model
+as_tibble(confint_f) %>% 
+  mutate(var = rownames(confint_f),
+         .before = `2.5 %`) %>% 
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
+  kable_styling(full_width = FALSE)
+```
 
-## Fixed effects
+
+The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the fixed and random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+
+## Interpreting the final model
+
+### Fixed effects
 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
@@ -1261,17 +558,16 @@ $$\begin{aligned}
      (\beta_{10j} + \beta_{11j}sector_{ij} + u_{1ij})year92_{tij} + \epsilon_{tij} \\ 
   &= \left[\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + u_{0ij} \right] +
      \left[\gamma_{100} + \gamma_{110}sector_{ij} + u_{1ij} \right]year92_{tij} + \epsilon_{tij} \\ 
-  &= \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{100}year92_{tij} + \gamma_{110}sector_{ij}year92_{tij}          \right] + 
-     \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + u_{0ij} + u_{1ij}year92_{tij}\right]\end{aligned}$$
+  &= \left[\gamma_{000} + \gamma_{010}sector_ {ij} + \gamma_{020}unit_{ij} + \gamma_{100}year92_{tij} + \gamma_{110}sector_{ij}year92_{tij}          \right] + 
+     \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + u_{0ij} + u_{1ij}year92_{tij} + + \epsilon_{tij} \right]\end{aligned}$$
      
-$$\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{100}year92_{tij} + \gamma_{110}sector_{ij}year92_{tij}$$
 
 ```{r}
 # Extract fixed effects for model with unit and sector as predictors
 fixef_f <- fixef(model_f)
 
-# \gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{100}year92_{tij} +
-# \gamma_{110}sector_{ij}year92_{tij}
+# \gamma_{000} + \gamma_{010}sector_ {ij} + \gamma_{020}unit_{ij} + \gamma_{100}year92_{tij} + 
+# \gamma_{110}sector_{ij}year92_{tij}   
 
 # Catholic (unit 11)
 fit_cat_unit11 <- fixef_f[[1]] + fixef_f[[5]] * c(0:30)
@@ -1281,6 +577,7 @@ fit_cat_unit12 <- fixef_f[[1]] + fixef_f[[4]] + fixef_f[[5]] * c(0:30)
   
 # Government (unit 11)
 fit_gov_unit11 <- fixef_f[[1]] + fixef_f[[2]] + fixef_f[[5]] * c(0:30) + fixef_f[[6]] * c(0:30)
+
 
 # Government (unit 12)
 fit_gov_unit12 <- fixef_f[[1]] + fixef_f[[2]] + fixef_f[[4]] + fixef_f[[5]] * c(0:30) + fixef_f[[6]] * c(0:30)
@@ -1293,6 +590,7 @@ fit_ind_unit12 <- fixef_f[[1]] + fixef_f[[3]] + fixef_f[[4]] + fixef_f[[5]] * c(
 ```
 
 ```{r}
+# Save fixed effects into a data frame
 fit_f <-
   tibble(
     # Unit 11
@@ -1308,18 +606,48 @@ fit_f <-
     completion_year = year92 + 1992
   )
 
+# Convert to long format for plotting
 fit_f <- fit_f %>% 
   pivot_longer(cols = Catholic_unit11:Independent_unit12,
                names_to = "sector_unit",
                values_to = "fit") 
 
+# Separate sector and unit into two variables
 fit_f <- fit_f %>% 
-  # Separate sector and unit into two variables
   separate(sector_unit, 
            into = c("sector", "unit"), 
            sep = "_",
            remove = FALSE) # Keep old variable for grouping in plot
+```
 
+```{r, eval=FALSE, echo=TRUE}
+summary(model_f)
+```
+
+```{r}
+# --- Model summary output
+
+# Extract variance and correlation component
+vc <- VarCorr(model_f)
+
+# Print variance and standard deviation of random effects
+print(vc, comp = c("Variance", "Std.Dev."))
+
+# Extract fixed effects coefficient
+coef(summary(model_f))
+
+# Print grouping structure
+cat(" Number of Level Two groups = ",
+    summary(model_f)$ngrps[1], "\n", 
+    "Number of Level Three groups = ",
+    summary(model_f)$ngrps[2])
+```
+
+Based on the model output (see detailed explanation of fixed effects in [step 9](#step-nine)), the estimated mean enrolments for government schools are estimated to be 2.06% ($(e^{0.02044} - 1) \times 100$) more than that of catholic schools when the subject is first introduced in 1992 (*i.e.* larger initial status). Government schools are estimated to have a mean increase in enrolments of 1.2610% ($(e^{(0.01448 - 0.0019)} - 1) \times 100$) per year, which is -0.1948% ($(e^(-0.00194999) - 1) * 100)$) less than that of catholic schools.
+
+On the other hand, independent schools have an estimated mean enrolments of 38% less than that of catholic schools when the subject is first introduced in 1992. However, this low initially low enrolments is matched with an a mean increase of 3.3976% per year, which is 1.9110% more than that of catholic schools per year.
+
+```{r spec-math-fixef, fig.cap = "Fixed effects of the final model for Specialist Mathematics subject"}
 fit_f %>% 
   ggplot(aes(x = completion_year,
              y = fit,
@@ -1340,8 +668,11 @@ fit_f %>%
   scale_y_continuous(limits = c(1.4, 2.4)) 
 ```
 
-## Random effects
+Based on the fixed effects, independent schools are expected to have highest log enrolments after 2020 (Figure \@ref(fig:spec-math-fixef). In all sectors, unit 11 enrolments appears to be marginally larger than unit 12, which may imply that students are taking the subject in year 10, so lesser students are enrolled in the subject in year 11. Government sectors appears to have the highest enrolment numbers initially (in year 1992), but have increases at a relatively slower rate as compared to the other sectors.
 
+To be noted, these fixed effects considers all schools within the different sectors; Therefore, the many small government schools with little enrolments in the subject (as seen in Figure \@ref(fig:time-plot-all)) may 'down weight' the mean fixed effects of all schools.
+
+### Random effects
 
 ```{r}
 ranef_school_f <- as_tibble(ranef(model_f)) %>%
@@ -1358,8 +689,8 @@ ranef_school_f <- as_tibble(ranef(model_f)) %>%
   mutate(qcaa_school_id = fct_reorder(qcaa_school_id, condval)) %>% 
   # Rename intercept and slope names
   mutate(term = if_else(term == "(Intercept)",
-                        true = "Intercept",
-                        false = "Slope")) 
+                        true = "Random Intercept",
+                        false = "Random Slope")) 
 
 # Random effects for between districts
 ranef_district_f <- as_tibble(ranef(model_f)) %>% 
@@ -1372,173 +703,70 @@ ranef_district_f <- as_tibble(ranef(model_f)) %>%
   mutate(term =  as.character(term),
          term = factor(if_else(
            term == "(Intercept)",
-           true = "Intercept",
+           true = "Random Intercept",
            false = term
          )))
 ```
 
-```{r}
+```{r spec-math-school-ranef, fig.cap = "Random effects for all schools"}
 # Plot random effect for schools nested within districts
 ggplot(ranef_school_f) +
   geom_point(aes(x = condval,
-                 y = qcaa_school_id)) +
+                 y = qcaa_school_id),
+             colour = "grey30",
+             alpha = 0.8) +
   geom_vline(xintercept = 0,
              size = 1,
              colour = "red") +
   facet_wrap(~ term,
              scales = "free_x")
+```
 
+Figure \@ref(fig:spec-math-school-ranef) represents the random intercept and slope of the random effects for a given school. It is a manifest that the intercept and slope are negatively correlated, where a large intercept is associated with a smaller random slope. This suggests that a larger school is associated with a smaller increase (decrease) in enrolments over the years while smaller schools are predicted to have large increase in enrolments over the years.
+
+```{r spec-math-distrcit-ranef, fig.cap = "Random intercept for districts"}
 # Plot random effects for between districts
 ggplot(ranef_district_f) + 
   geom_point(aes(x = condval,
                  y = qcaa_district)) +
   geom_vline(xintercept = 0,
              colour = "red",
-             size = 1)
+             size = 1) +
+  labs(title = "Random intercept for districts at level three")
 ```
 
-## Predictions
+As the random slopes are removed, all districts are predicted to have the same increase in enrolments over the years; And as was discussed previously, this was a reasonable assumption or an otherwise perfect correlation with random slope and intercept will be fitted. Figure \@ref(fig:spec-math-distrcit-ranef) demonstrates that schools in Brisbane Central has the largest enrolments, on average.
 
-```{r}
+
+### Predictions
+
+```{r spec-math-pred, fig.cap = "Model predictions for 20 randomly selected schools"}
 set.seed(136)
 # Predictions for 20 random schools
 spec_math_long %>% 
-  mutate(pred = predict(model_f)) %>% 
+  filter(unit == "year_11_enrolments") %>% 
   filter(qcaa_school_id %in% sample(qcaa_school_id, 20)) %>% 
+  # Exponentiate predictions to back transform to original scale
+  mutate(pred = predict(model_f, newdata = .)) %>% 
   ggplot() +
-  
+  # Actual data
+  geom_line(aes(x = completion_year,
+                y = log_enrolments,
+                group = qcaa_school_id)) +
+  # Predicitons
   geom_line(aes(x = completion_year,
                 y = pred,
                 group = qcaa_school_id),
             colour = "orange") +
-  geom_line(aes(x = completion_year,
-                y = log_enrolments,
-                group = qcaa_school_id)) +
-  facet_grid(qcaa_school_id~ unit,
-             scales = "free")
+  facet_wrap(~ qcaa_school_id)
 ```
 
-## Compare with Linear model
-
-```{r, warning=FALSE}
-# Extract conditional mean of random effects: E(gamma | y)
-corrected_enrol <- as_tibble(ranef(model_f)) %>% 
-  select(term, grp, condval) %>% 
-  # Convert to wide format
-  pivot_wider(names_from = term,
-              values_from = condval) %>% 
-  rename(adj_intcp = `(Intercept)`,
-         adj_slope = year92,
-         qcaa_district = grp) 
-
-# Separate district and school id 
-corrected_enrol <- corrected_enrol %>% 
-  separate(qcaa_district, c("qcaa_district", "qcaa_school_id"), sep = ":") %>% 
-  filter(!is.na(qcaa_school_id))
-
-# Add raw intercept for each school (`qcaa_school_id`)
-corrected_enrol <- corrected_enrol %>% 
-  mutate(raw_intcp = coef(lm(log_enrolments ~ qcaa_school_id - 1, data = spec_math_long)))
-
-# Add raw slope for each school (`qcaa_school_id`)
-raw_slope <- spec_math_long %>% 
-  group_by(qcaa_school_id) %>% 
-  # Fit linear model (ignoring correlation between schools within districts)
-  summarise(raw_slope = lm(log_enrolments ~ year92)$coef["year92"],
-            .groups = "drop") 
-
-# Add raw slope into corrected enrolments tibble
-corrected_enrol <- corrected_enrol %>% 
-  left_join(raw_slope, by = "qcaa_school_id") 
-
-# Scale enrolments for raw & adjusted scores so they're on the same scale
-corrected_enrol <- corrected_enrol %>%
-  mutate(across(where(is.numeric), ~ (.x - mean(.x, na.rm = T))/sd(.x, na.rm = T)))
-
-# Add original dataset into model output
-corrected_enrol <- spec_math %>% 
-  # Extract unique school details
-  distinct(qcaa_school_id, school_name, sector, school_postcode) %>% 
-  right_join(corrected_enrol, by = "qcaa_school_id")
-```
-
-```{r}
-# Adjusted intercept against adjusted slope (based on mixed effects model)
-p1 <- corrected_enrol %>% 
-  ggplot(aes(y = adj_intcp,
-             x = adj_slope)) +
-  geom_point() +
-  labs(title = "Adjusted slope against adjusted intercept in Multilevel Model model",
-       x = "Adjusted slope",
-       y = "Adjusted intercept") +
-  theme(title = element_text(size = 8))
-
-# Raw slope & intercept
-p2 <- corrected_enrol %>% 
-  ggplot(aes(x = raw_intcp,
-             y = raw_slope),
-         alpha = 0.3) +
-  geom_point() +
-  labs(title = "Raw slope against Raw intercept in linear model (ignores dependence of schools)",
-       x = "Raw Intercept",
-       y = "Raw slope") +
-  theme(title = element_text(size = 8))
-
-p1 / p2
-```
-
-```{r}
-library(ggrepel)
-
-# Plot random intercept for each school
-corrected_enrol %>% 
-  ggplot(aes(x = raw_intcp,
-             y = adj_intcp,
-             label = school_name)) +
-  geom_point(alpha = 0.5) +
-  geom_label_repel(data = filter(corrected_enrol,
-                                 adj_intcp > 4 |
-                                 raw_intcp > 4),
-                   nudge_y = 0.5,
-                   nudge_x = -0.1,
-                   label.size = 0.1,
-                   size = 2
-                   ) +
-  geom_abline(intercept = 0,
-              slope = 1,
-              colour = "red",
-              alpha = 0.4) +
-  facet_wrap(~ qcaa_district) +
-  labs(title = "Adjusted intercept against raw intercepts, with a 45° line")
-```
-
-# Model Diagnostics
-
-```{r}
-# qqplot
-as_tibble(ranef(model_f)) %>% 
-  ggplot(aes(sample = condval)) +
-  geom_qq() +
-  geom_qq_line(colour = "steelblue") +
-  facet_wrap(~ term,
-             scales = "free")
-```
-
-```{r}
-# Residual vs. fitted plot
-broom.mixed::augment(model_f) %>% 
-  ggplot() +
-  geom_point(aes(x = .fitted,
-                 y = .resid)) +
-  geom_hline(yintercept = 0,
-             colour = "red")
-```
+Figure \@ref(fig:spec-math-pred) above shows the predictions for 20 randomly selected schools.
 
 
-# Limitations
 
-- No proportions dataset 
-- Only indicator variables are available
+
+
 
 
 
