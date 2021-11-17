@@ -7,9 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
 
-```{r, include=FALSE}
 library(tidyverse)
 library(janitor)
 library(readxl)
@@ -71,6 +69,10 @@ subj_group2020 <- subj_group2020 %>%
          percentage_la = percentage_d,
          number_vla = number_e,
          percentage_vla = percentage_e)
+
+
+subj_group2020 %>% 
+  distinct(grouping)
 ```
 
 ```{r}
@@ -147,37 +149,8 @@ mathsci_group <- mathsci_group %>%
 ```
 
 ```{r}
-mathsci_group %>%
-  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
-               names_to = "unit",
-               values_to = "enrolments") %>% 
-  filter(grouping %in% c("Males", "Females")) %>% 
-  ggplot(aes(x = completion_year,
-             y = enrolments)) +
-  geom_line(aes(colour = grouping)) +
-  facet_grid(subject_name ~ unit,
-             scales = "free")
-```
-
-
-```{r}
-mathsci_group %>% 
-  filter(subject_name == "Physics", 
-         grouping %in% c("Males", "Females")) %>% 
-  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
-               names_to = "unit",
-               values_to = "enrolments") %>% 
-  ggplot(aes(x = factor(completion_year),
-             y = enrolments,
-             colour = grouping)) +
-  geom_point() +
-  facet_wrap(~ unit)
-```
-
-
-```{r}
 # Convert to long format for plotting purposes
-mathsci_group_long <- mathsci_group %>% 
+gender_long <- mathsci_group %>% 
   pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
                names_to = "unit",
                values_to = "enrolments") %>% 
@@ -186,15 +159,16 @@ mathsci_group_long <- mathsci_group %>%
   # Concatenate groupings and unit for plotting purposes
   mutate(unit_grouping = paste0(grouping, ":", unit)) 
 
-mathsci_group_long %>% 
+gender_long %>% 
   ggplot(aes(x = factor(completion_year),
                 y = enrolments,
                 group = unit_grouping,
                 colour = grouping)) +
-  geom_line() +
+  geom_line(data = filter(mathsci_group_long,
+                          !subject_name %in% c("Psychology", "Essential Mathematics"))) +
   # Scatter plot for psychology subject consisting of only one cohort in 2020
   geom_point(data = filter(mathsci_group_long, 
-                           subject_name == "Psychology")) +
+                           subject_name %in% c("Psychology", "Essential Mathematics"))) +
   colorspace::scale_colour_discrete_qualitative() +
   facet_wrap(~ subject_name,
              scales = "free") +
@@ -207,6 +181,23 @@ mathsci_group_long %>%
 - To be noted, essential mathematics should not consist 2021 figures
 
 
+```{r}
+mathsci_group_long <- mathsci_group %>% 
+  pivot_longer(cols = c(year_11_enrolments,year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments")
+  
+mathsci_group_long %>% 
+  filter(grouping != "All") %>% 
+  ggplot(aes(y = enrolments,
+             x = factor(completion_year))) +
+  geom_line(aes(group = grouping,
+                colour = grouping)) +
+  facet_grid(subject_name ~ unit,
+             scales = "free")
+```
+
+
 ## Issues with dataset
 
 ```{r}
@@ -214,6 +205,7 @@ mathsci_group_long %>%
 subj_group %>% 
   filter(completion_year == 2021)
 ```
+
 
 
 

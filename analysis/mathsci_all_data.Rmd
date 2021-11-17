@@ -13,6 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
+# Enrolments for all maths and science subjects 
+
 ```{r, include=FALSE}
 # ----- Read-in data
 
@@ -171,6 +173,7 @@ mathsci_new <- rbind(math_new, sci_new) %>%
   filter(subject_name != "Numeracy")
 ```
 
+
 ```{r}
 # Group unit 1 & 2, 3 & 4 enrolments into year 11 and year 12 enrolments respectively
 ## Required as old system splits enrolments into two groups (year 11 and year 12 enrolments)
@@ -272,6 +275,7 @@ mathsci_all <- mathsci_all %>%
     school_name == "Aboriginal & Islander Independent Community School" ~ "Aboriginal and Islander Independent Community School",
     # Extra "The"
     school_name == "The SCOTS PGC College" ~ "Scots PGC College",
+    # Incorrect school name
     school_name == "Kingston Centre for Continuing Secondary Education" ~ "Kingston Learning College",
     # Exclude suburb
     school_name == "Marist College Emerald" ~ "Marist College",
@@ -315,11 +319,7 @@ mathsci_all <- mathsci_all %>%
 ```
 
 
-
 ```{r, eval=FALSE}
 # ----- Write data
 write_csv(mathsci_all, here::here("data/mathsci_all.csv"))
 ```
-
-
-

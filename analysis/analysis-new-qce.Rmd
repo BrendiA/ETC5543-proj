@@ -130,7 +130,7 @@ sci_new <- subj_new %>%
                              "Agricultural Science",
                              "Biology",
                              "Chemistry", 
-                             "Earth and Environmental Science", # new
+                             "Earth & Environmental Science", # new
                              "Marine Science",
                              "Physics",
                              "Psychology", # New
@@ -394,5 +394,4 @@ mathsci_new_unit_prop %>%
   theme(axis.text.x = element_text(angle = 75, vjust = 0.5))
 ```
 
-## Mixed Effect Models
 

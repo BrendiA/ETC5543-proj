@@ -11,7 +11,9 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 ```
 
-```{r}
+# School outcomes dataset
+
+```{r, include=FALSE}
 # Read-in math & science subjects data
 mathsci_all <- read_csv(here::here(data = "data/mathsci_all.csv"))
 ```
@@ -19,76 +21,56 @@ mathsci_all <- read_csv(here::here(data = "data/mathsci_all.csv"))
 ```{r, include=FALSE}
 # 2012 to 2013
 outcomes_2012 <- read_csv(here::here("data/year_12_outcomes/qsa_stats_yr12_outcomes_12.csv")) %>% 
-  mutate(completion_year = 2012)
+  mutate(completion_year = 2012,
+         .before = "School")
 
 outcomes_2013 <- read_csv(here::here("data/year_12_outcomes/qsa_stats_yr12_outcomes_13.csv")) %>% 
-  mutate(completion_year = 2013)
+  mutate(completion_year = 2013,
+         .before = "School")
 ```
 
 ```{r, include=FALSE}
-# 2014 - 2020
-filepath_2008_2020 <- here::here(paste0("data/year_12_outcomes/qcaa_stats_yr12_outcomes_", 
+# 2014 to 2029
+filepath_2008_2019 <- here::here(paste0("data/year_12_outcomes/qcaa_stats_yr12_outcomes_", 
                                         setdiff(seq(8,19,1), 12:13), # All numbers from 8-19 except 12 & 13 
                                         "_all_schools.csv"))
 
-files <- filepath_2008_2020 %>% 
+# Read-in file for each data
+files <- filepath_2008_2019 %>%
   purrr::map(read_csv)
 
-for (i in 1:length(files)){
+for (i in 1:length(files)) {
   
-  if (i == 1){
-    outcomes_2008_2020 <- files[[i]] %>%  mutate(completion_year = i + 2007,
-                                                 .before = School)
+  # For first iteration
+  if (i == 1) {
+    outcomes_2008_2019 <-
+      files[[i]] %>% mutate(completion_year = 2008, .before = "School")
   }
   
   temp <- files[[i]]
   
-  temp <- temp %>% 
-    mutate(completion_year = i + 2008)
-  
-  temp <- temp %>% 
-    mutate(completion_year = i + 2009)
-  
-  outcomes_2008_2020 <- rbind(outcomes_2008_2020, temp)
-}
-```
-
-```{r}
-# 2014 - 2020
-filepath_2008_2020 <- here::here(paste0("data/year_12_outcomes/qcaa_stats_yr12_outcomes_", 
-                                        setdiff(seq(8,19,1), 12:13), # All numbers from 8-19 except 12 & 13 
-                                        "_all_schools.csv"))
-
-files <- filepath_2008_2020 %>% 
-  purrr::map(read_csv)
-
-for (i in 1:length(files)){
-  
-  if (i == 1){
-    outcomes_2008_2020 <- files[[i]] %>%  mutate(completion_year = i + 2007,
-                                                 .before = School)
+  # For 2009-2013
+  if (i %in% 2:4){
+    temp <- temp %>% mutate(completion_year = i + 2007)
+    outcomes_2008_2019 <- rbind(outcomes_2008_2019, temp)
   } 
   
-  temp <- files[[i]]
-  
-  if(i %in% 2:4){
-    temp <- temp %>% mutate(completion_year = i + 2007)
-  } else{
-    temp <- temp %>% mutate(completion_year = i + 2009)  
+  # for 2010-2019
+  if (i %in% 5:10){
+    temp <- temp %>% mutate(completion_year = i + 2009)
+    outcomes_2008_2019 <- rbind(outcomes_2008_2019, temp)
   }
-
-  outcomes_2008_2020 <- rbind(outcomes_2008_2020, temp)
 }
 ```
 
 ```{r}
 # Combine dataset from 2008-2020
-school_outcomes <- rbind(outcomes_2008_2020, outcomes_2012, outcomes_2013) %>% 
+school_outcomes <- rbind(outcomes_2008_2019, outcomes_2012, outcomes_2013) %>% 
   arrange(completion_year)
 ```
 
 ```{r}
-test_df <- mathsci_all %>% 
+mathsci_all <- mathsci_all %>% 
   # Remove parentheses relating to suburb
   mutate(school_name = str_remove(school_name, " \\(.*\\)")) %>% 
   # Remove suburb by extracting all text before the last "-"
@@ -202,23 +184,11 @@ school_outcomes <- school_outcomes %>%
                                 true = "Spinifex State College",
                                 false = School)) %>% 
   # Extract all text before the last "-"
-  mutate(School = str_replace(School, pattern = '(.*)\\s+\\-.*', '\\1')) %>% 
+  mutate(School = str_replace(School, pattern = '(.*)\\s+\\-.*', '\\1')) %>%   
   # Remove parentheses relating to suburb
   mutate(School = str_remove(School, " \\(.*\\)")) 
 ```
 
-```{r}
-test_df %>% 
-  filter(completion_year >= 2008 & completion_year <= 2019) %>% 
-  filter(school_name %in% setdiff(school_name, school_outcomes$School )) %>% 
-  distinct(qcaa_school_id, school_name, school_postcode) %>% 
-  arrange(qcaa_school_id)
-
-test_df %>% 
-  filter(school_name %in% setdiff(school_name, school_outcomes$School)) %>% 
-  distinct(qcaa_school_id, school_name, school_postcode) %>% 
-  arrange(qcaa_school_id)
-```
 
 **Schools existed before 2008 but not after 2008**
 1	Acacia Ridge State High School
@@ -305,20 +275,232 @@ test_df %>%
   - Note: Most of these schools relate to overseas schools
 
 ## Duplicates 
+* St Peter's Lutheran College - Springfield / St Peters Lutheran College Indooroopilly
+* St Peter's Lutheran College = 4068
+* St Peters Lutheran College - Springfield = 4300
+* In `sep_all` both St Peters Lutheran College were combined into one school with wrong sep
 
 ```{r}
-# School ID with >= 2 school names (Schools with >= 2 different postcodes)
-duplicates <- test_df %>% 
-  select(qcaa_school_id, school_name, school_postcode) %>% 
-  distinct(.keep_all = TRUE) %>% 
-  group_by(school_name) %>% 
-  tally() %>% 
+# Extract school's total no. of Senior Education Profile (SEP) for a given year 
+sep_all <- school_outcomes %>% 
+  select(completion_year,
+         school_name = School,
+         locality = Locality,
+         sep = SEP)
+```
+
+```{r}
+# Find duplicates in school outcomes data
+# i.e. schools with > 1 locality
+sep_duplicates <- sep_all %>% 
+  # Extract all unique schools and locality
+  distinct(school_name, locality) %>% 
+  count(school_name) %>% 
+  # Extract schools with >= 1 locality
   filter(n > 1) %>% 
   pull(school_name)
 
-# Add school and postcode as some schools may have same school ID but different postcodes
-test_df <- test_df %>% 
-  mutate(school_and_postcode = paste0(school_name, " (", school_postcode, ")"),
-         .before = school_name)
+locality_no_dup <- sep_all %>% 
+  filter(!school_name %in% sep_duplicates) %>% 
+  select(-locality)
+
+locality_dup <- sep_all %>% 
+  filter(school_name %in% sep_duplicates) %>% 
+  mutate(school_postcode = case_when(
+    school_name == "Arcadia College" & locality == "Southport" ~ "4226", # School 
+    school_name == "Arcadia College" & locality == "Varsity Lakes" ~ "4227", # PO BOX
+    school_name == "Burnett Youth Learning Centre" & locality == "Bundaberg South" ~ "4670", # Bundaberg is in Elliott
+    school_name == "Burnett Youth Learning Centre" & locality == "Elliott" ~ "4670",
+    school_name == "Cairns School of Distance Education" & locality == "Manunda Cairns" ~ "4870", # school
+    school_name == "Cairns School of Distance Education" & locality == "Cairns" ~ "4870", # PO BOX
+    school_name == "Calvary Christian College" & locality == "Carbrook" ~ "4130",
+    school_name == "Calvary Christian College" & locality == "Mount Louisa" ~ "4814",
+    school_name == "Clontarf Beach State High School" & locality == "Clontarf" ~ "4019",
+    school_name == "Clontarf Beach State High School" & locality == "Clontarf Beach" ~ "4019", # same address
+    school_name == "Coolum State High School" & locality == "Coolum Beach" ~ "4573",
+    school_name == "Coolum State High School" & locality == "Coolum" ~ "4573",
+    school_name == "Craigslea State High School" & locality == "West Chermside" ~ "4032",
+    school_name == "Craigslea State High School" & locality == "Chermside West" ~ "4032",
+    school_name == "Emmaus College" & locality == "North Rockhampton" ~ "4701",
+    school_name == "Emmaus College" & locality == "Jimboomba" ~ "4280",
+    school_name == "Faith Lutheran College" & locality == "Plainland" ~ "4341",
+    school_name == "Faith Lutheran College" & locality == "Victoria Point" ~ "4164",
+    school_name == "Faith Lutheran College" & locality == "Thornlands" ~ "4164", # thornlands in vic point
+    school_name == "Heatley Secondary College" & locality == "Heatley" ~ "4814",
+    school_name == "Heatley Secondary College" & locality == "Townsville" ~ "4814", # heatley in townsville
+    school_name == "Hymba Yumba Community Hub" & locality == "Springfield" ~ "4300",
+    school_name == "Hymba Yumba Community Hub" & locality == "Springfield Central" ~ "4300", # same
+    school_name == "Jabiru Community College" & locality == "Bracken Ridge" ~ "4017",
+    school_name == "Jabiru Community College" & locality == "Zillmere" ~ "4034",
+    school_name == "Marist College" & locality == "Ashgrove" ~ "4060",
+    school_name == "Marist College" & locality == "Emerald" ~ "4720",
+    school_name == "Marist College" & locality == "Paddington" ~ "4064", # permanently closed
+    school_name == "Mt Maria College" & locality == "Mitchelton" ~ "4053",
+    school_name == "Mt Maria College" & locality == "Petrie" ~ "4502",
+    school_name == "North Rockhampton State High School" & locality == "Rockhampton North" ~ "4701", # rockhampton north is in frenchville
+    school_name == "North Rockhampton State High School" & locality == "Frenchville" ~ "4701",
+    school_name == "Pacific Lutheran College" & locality == "Meridan Plains" ~ "4551",
+    school_name == "Pacific Lutheran College" & locality == "Birtinya" ~ "4551", # same
+    school_name == "Pioneer State High School" & locality == "Andergrove Mackay" ~ "4740",
+    school_name == "Pioneer State High School" & locality == "Andergrove" ~ "4740",
+    school_name == "Saint Stephen's College" & locality == "Coomera" ~ "4209",
+    school_name == "Saint Stephen's College" & locality == "Upper Coomera" ~ "4209",
+    school_name == "Seton College" & locality == "Mount Gravatt East" ~ "4122",
+    school_name == "Seton College" & locality == "East Mt Gravatt" ~ "4122",
+    school_name == "Southern Cross Catholic College" & locality == "Scarborough" ~ "4020",
+    school_name == "Southern Cross Catholic College" & locality == "Annandale" ~ "4814",
+    school_name == "St Augustine's College" & locality == "Cairns" ~ "4870",
+    school_name == "St Augustine's College" & locality == "Springfield" ~ "4300",
+    school_name == "St Joseph's College" & locality == "Brisbane" ~ "4000",
+    school_name == "St Joseph's College" & locality == "Toowoomba" ~ "4350",
+    school_name == "St Joseph's College" & locality == "Stanthorpe" ~ "4380",
+    school_name == "St Mary's College" & locality == "Toowoomba" ~ "4350",
+    school_name == "St Mary's College" & locality == "Maryborough" ~ "4650",
+    school_name == "St Peters Lutheran College" & locality == "Indooroopilly" ~ "4068",
+    school_name == "St Peters Lutheran College" & locality == "Springfield Central" ~ "4300",
+    school_name == "Thuringowa State High School" & locality == "Condon" ~ "4815",
+    school_name == "Thuringowa State High School" & locality == "Townsville" ~ "4815",
+    school_name == "Trinity Bay State High School" & locality == "Manunda" ~ "4870",
+    school_name == "Trinity Bay State High School" & locality == "Manunda Cairns" ~ "4870",
+    school_name == "Trinity College" & locality == "Beenleigh" ~ "4207",
+    school_name == "Trinity College" & locality == "Gladstone" ~ "4680",
+    school_name == "Western Suburbs State Special School" & locality == "Durack" ~ "4077",
+    school_name == "Western Suburbs State Special School" & locality == "Inala" ~ "4077", # same
+    school_name == "William Ross State High School" & locality == "Annandale" ~ "4814",
+    school_name == "William Ross State High School" & locality == "Townsville" ~ "4814")) %>% # annandale is in city of townsville)
+  select(-locality)
 ```
+
+```{r}
+sep_outcomes <- mathsci_all %>%
+  # Convert school_postcode into character vector to facilitate relational join
+  mutate(school_postcode = as.character(school_postcode)) %>% 
+  left_join(locality_dup,
+            by = c("completion_year",
+                   "school_name",
+                   "school_postcode")) %>% 
+  left_join(locality_no_dup,
+            by = c("completion_year",
+                   "school_name")) %>% 
+  # Remove overlaps due to relational join
+  mutate(sep1 = case_when(
+    is.na(sep.x) & is.na(sep.y) ~ "NA",
+    is.na(sep.x)  ~ sep.y,
+    is.na(sep.y)  ~ sep.x
+  )) %>% 
+  # Remove overlapping variables
+  select(-c(sep.x, 
+            sep.y)) 
+```
+
+
+```{r}
+# Extract schools with two or more locations (postcodes)
+enrolments_duplicates <- mathsci_all %>% 
+  distinct(school_name, school_postcode) %>% 
+  count(school_name) %>% 
+  filter(n > 1) %>% 
+  pull(school_name)
+
+# Schools with only 1 location (postcode)
+postcode_no_duplicates <- sep_all %>% 
+  filter(!school_name %in% enrolments_duplicates) %>% 
+  select(-locality)
+
+# For duplicates, Manually include school_postcode to facilitate relational join
+postcode_duplicates <- sep_all %>% 
+  filter(school_name %in% enrolments_duplicates) %>% 
+  mutate(school_postcode = case_when(
+    school_name == "Australian International Islamic College" & locality == "Durack" ~ "4077",
+    school_name == "Calvary Christian College" & locality == "Carbrook" ~ "4130",
+    school_name == "Calvary Christian College" & locality == "Mount Louisa" ~ "4814",
+    school_name == "Carinity Education" & locality == "Sunnybank" ~ "4109",
+    school_name == "Emmaus College" & locality == "North Rockhampton" ~ "4701",
+    school_name == "Emmaus College" & locality == "Jimboomba" ~ "4280",
+    school_name == "Faith Lutheran College" & locality == "Plainland" ~ "4341",
+    school_name == "Faith Lutheran College" & locality == "Victoria Point" ~ "4164",
+    school_name == "Faith Lutheran College" & locality == "Thornlands" ~ "4164",
+    school_name == "Grace Lutheran College" & locality == "Rothwell" ~ "4022",
+    school_name == "Marist College" & locality == "Ashgrove" ~ "4060",
+    school_name == "Marist College" & locality == "Emerald" ~ "4720",
+    school_name == "Marist College" & locality == "Paddington" ~ "4000",
+    school_name == "Mt Maria College" & locality == "Mitchelton" ~ "4053",
+    school_name == "Mt Maria College" & locality == "Petrie" ~ "4502",
+    school_name == "Southern Cross Catholic College" & locality == "Scarborough" ~ "4020",
+    school_name == "Southern Cross Catholic College" & locality == "Annandale" ~ "4814",
+    school_name == "St Augustine's College" & locality == "Cairns" ~ "4870",
+    school_name == "St Augustine's College" & locality == "Springfield" ~ "4300",
+    school_name == "St Joseph's College" & locality == "Brisbane" ~ "4000",
+    school_name == "St Joseph's College" & locality == "Stanthorpe" ~ "4380",
+    school_name == "St Joseph's College" & locality == "Toowoomba" ~ "4350",
+    school_name == "St Mary's Catholic College" & locality == "Kingaroy" ~ "4610",
+    school_name == "St Mary's College" & locality == "Toowoomba" ~ "4350",
+    school_name == "St Mary's College" & locality == "Maryborough" ~ "4650",
+    school_name == "St Patrick's College" & locality == "Gympie" ~ "4570",
+    school_name == "St Ursula's College" & locality == "Yeppoon" ~ "4703",
+    school_name == "Trinity College	" & locality == "Beenleigh" ~ "4207",
+    school_name == "Trinity College	" & locality == "Gladstone" ~ "4680")) %>% 
+  select(-locality)
+```
+
+
+
+```{r, warning=FALSE}
+# Join enrolments data and SEP data
+sep_outcomes <- sep_outcomes %>%
+  # Convert school_postcode into character vector to facilitate relational join
+  mutate(school_postcode = as.character(school_postcode)) %>% 
+  # SEP data without duplicates
+  left_join(postcode_no_duplicates, by = c("school_name",
+                                      "completion_year")) %>%
+  # SEP data with duplicates
+  left_join(postcode_duplicates,
+            by = c("completion_year",
+                   "school_name",
+                   "school_postcode")) %>% 
+  # Remove overlaps due to relational join
+  mutate(sep2 = case_when(
+    is.na(sep.x) & is.na(sep.y) ~ "NA",
+    is.na(sep.y)  ~ sep.x,
+    is.na(sep.x)  ~ sep.y
+  )) %>% 
+  # Remove overlapping variables
+  select(-c(sep.x, 
+            sep.y)) %>% 
+  # Remove overlapping variables from 
+  mutate(sep = case_when(
+    sep1 == "NA" ~ sep2,
+    sep2 == "NA" ~ sep1,
+    TRUE ~ sep1
+  )) %>% 
+  select(-c(sep1, sep2)) %>% 
+  mutate(sep = as.numeric(sep))
+```
+
+```{r}
+# Filter to years in which we have data for
+sep_outcomes <- sep_outcomes %>% 
+  filter(between(completion_year, 2008, 2019)) %>% 
+  # Remove schools that are missing values for enrolments or SEP outcome (and vice versa)
+  filter(!is.na(sep)) 
+
+sep_outcomes %>% 
+  filter(subject_name == "Chemistry") %>% 
+  mutate(test = year_11_enrolments/sep) %>% 
+  ggplot() +
+  geom_jitter(aes(x = factor(completion_year),
+                  y = test))
+```
+
+
+
+
+
+
+
+
+
+
+
+
 

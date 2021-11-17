@@ -7,6 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(naniar)
 ```
 
 ## Data and Motivation
@@ -172,8 +175,20 @@ ggplot() +
 ```
 
 
-
-
+```{r}
+mathsci_old_long %>% 
+  filter(subject_name == "Mathematical Methods") %>% 
+  ggplot(aes(group = qcaa_school_id, x = completion_year, y = enrolments)) +
+  geom_line(alpha = 0.5) +
+  geom_line(stat = "smooth", method = "lm",
+            size = 0.5, 
+            alpha = 0.5,
+            colour = "steelblue") +
+  facet_wrap(~unit,
+             nrow = 2) +
+  scale_y_continuous(limits = seq(0,400,200)) +
+  theme(axis.text.x = element_text(angle = 90))
+```
 
 
 
