@@ -2,15 +2,36 @@
 title: "Multilevel Model for Aquatic Practices"
 author: "Brendi Ang"
 date: "17/10/2021"
+header-includes: 
+- \usepackage{float} 
+- \floatplacement{figure}{H}
+linestretch: 1.3
+mainfont: Arial
 output: 
-  bookdown::html_document2:
+  bookdown::pdf_document2:
     theme: flatly
     toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: yes 
     number_sections: false
 ---
 
 ```{r aqua-sci-setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.pos = "H",
+  fig.height = 7,
+  fig.width = 9,
+  fig.align = "center"
+)
+
+options(knitr.table.format = function() {
+  if (knitr::is_latex_output())
+    "latex" else "html"
+})
 ```
 
 ```{r, include=FALSE}
@@ -167,8 +188,11 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable(caption = "AIC values for all candidate models for Aquatic Practices") %>% 
+  kable(caption = "AIC values for all candidate models for Aquatic Practices",
+        booktabs = TRUE,
+        linesep = "") %>% 
   kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
 ```
 
@@ -296,7 +320,7 @@ model4.9 <- update(model4.8, . ~. - unit)
 model4.10 <- update(model4.8, . ~. - sector)
 ```
 
-```{r aqua-prac-test-fixef}
+```{r}
 # ANOVA test
 model_anova <- anova(
   model4.0,
@@ -311,19 +335,25 @@ model_anova <- anova(
   model4.9,
   model4.10
 )
+```
 
-
+```{r aqua-prac-test-fixef}
 model_anova %>% 
   as_tibble() %>% 
   select(npar, AIC, BIC, logLik) %>% 
   mutate(model = rownames(model_anova),
          .before = npar) %>% 
   arrange(AIC) %>% 
-  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "AIC for all possible models with different combinations of fixed effects",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
-As summarise in [step 6](#step-six), level-two predictors `secotr` and `unit` will be added to the model. The largest possible model (`model4.0`) will first be fitted, before iteratively removing fixed effects one at a time (with `model4.10` being the smallest of all 10 candidate models), whilst recording the AIC for each model. `model4.5` (Table \@ref(tab:aqua-prac-test-fixef)) appears to have the optimal (smallest) AIC, and will be used in the next section in building the final model.
+As summarised in [step 6](#step-six), level-two predictors `sector` and `unit` will be added to the model. The largest possible model (`model4.0`) will first be fitted, before iteratively removing fixed effects one at a time (with `model4.10` being the smallest of all 10 candidate models), whilst recording the AIC for each model. `model4.5` (Table \@ref(tab:aqua-prac-test-fixef)) appears to have the optimal (smallest) AIC, and will be used in the next section in building the final model.
+
 
 ## Parametric bootstrap to test random effects
 
@@ -402,8 +432,12 @@ save(bootstrapLRT, file = here::here("data/bootstrapLRT/aqua-prac.rda"))
 load(here::here("data/bootstrapLRT/aqua-prac.rda"))
 
 as_tibble(bootstrapLRT) %>% 
-  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 
@@ -460,8 +494,13 @@ load(here::here("data/confint/aqua-prac.rda"))
 as_tibble(confint_f) %>% 
   mutate(var = rownames(confint_f),
          .before = `2.5 %`) %>% 
-  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model",
+        booktabs = TRUE,
+        linesep = "",
+        format = "pandoc") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
@@ -480,6 +519,7 @@ Therefore, the composite model can be written as
 $$\begin{aligned}Y_{tij} =\ &  \pi_{0ij} + \pi_{1ij}year15_{tij} + \epsilon_{tij} \\ =\ & (\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + u_{1ij})year15_{tij} + \epsilon_{tij} \\ =\ & \left[\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + \beta_{10j}year15_{tij} + \beta_{11j}sector_{ij}year15_{tij} + \beta_{12j}unit_{ij}year15_{tij} \right] \left[u_{0ij} + u_{1ij} + \epsilon_{tij} \right] \end{aligned}$$
 
 ### Fixed effects
+
 ```{r}
 # Extract fixed effects for final model
 fixef_f <- fixef(model_f)
@@ -619,7 +659,7 @@ In the random effects, there is a some negative correlation between the random i
 
 ### Predictions
 
-```{r}
+```{r aqua-prac-pred, fig.cap = "Model predictions for year 11 enrolments for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments
 set.seed(1360)
 
@@ -641,4 +681,5 @@ aqua_prac_long %>%
   facet_wrap(~ qcaa_school_id)
 ```
 
+Figure \@ref(fig:aqua-prac-pred) above shows the predictions for 20 randomly selected schools.
 

@@ -2,15 +2,36 @@
 title: "Multilevel Model for Agricultural Sciences"
 author: "Brendi Ang"
 date: "17/10/2021"
+header-includes: 
+- \usepackage{float} 
+- \floatplacement{figure}{H}
+linestretch: 1.3
+mainfont: Arial
 output: 
-  bookdown::html_document2:
+  bookdown::pdf_document2:
     theme: flatly
     toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: yes 
     number_sections: false
 ---
 
 ```{r agri-sci-setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.pos = "H",
+  fig.height = 7,
+  fig.width = 9,
+  fig.align = "center"
+)
+
+options(knitr.table.format = function() {
+  if (knitr::is_latex_output())
+    "latex" else "html"
+})
 ```
 
 ```{r, include=FALSE}
@@ -170,6 +191,7 @@ model0_AIC %>%
   arrange(AIC) %>% 
   kable(caption = "AIC values for all candidate models for Agricultural Science") %>% 
   kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
 ```
 
@@ -309,7 +331,7 @@ model4.9 <- update(model4.8, . ~. - unit)
 model4.10 <- update(model4.8, . ~. - sector)
 ```
 
-```{r}
+```{r agri-sci-test-fixef}
 # ANOVA test
 model_anova <- anova(
   model4.0,
@@ -331,10 +353,16 @@ model_anova %>%
   select(npar, AIC, BIC, logLik) %>% 
   mutate(model = rownames(model_anova),
          .before = npar) %>% 
-  arrange(AIC)
+  arrange(AIC) %>% 
+  kable(caption = "AIC for all possible models with different combinations of fixed effects",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
-- The AIC and BIC favoured `model4.3`.
+As outlined in [step 6](#step-six), `sector` and `unit` will be added as predictors to the model. The largest possible model (`model4.0`) will then be fitted, before removing the fixed effects one at a time (with `model4.10` being the smallest of all 10 candidate models), while recording the AIC for each model. `model4.3` appears to have the optimal (smallest) AIC (Table \@ref(tab:agri-sci-test-fixef)), and will be used in the next section to build the final model.
 
 ## Parametric bootstrap to test random effects
 
@@ -411,7 +439,9 @@ load(here::here("data/bootstrapLRT/agri-sci.rda"))
 
 as_tibble(bootstrapLRT) %>% 
   kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
-  kable_styling(full_width = FALSE)
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 ```{r agri-sci-bootstrapLRT-plot, fig.cap = "Histogram of likelihood ratio test statistic, with a red vertical line indicating the likelihood ratio test statistic for the actual model"}
@@ -471,7 +501,9 @@ as_tibble(confint_f) %>%
   mutate(var = rownames(confint_f),
          .before = `2.5 %`) %>% 
   kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
-  kable_styling(full_width = FALSE)
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 The parametric bootstrap is utilised to construct confidence intervals (as detailed in [step 8](#step-eight)). If the confidence intervals for the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. 
@@ -485,15 +517,10 @@ The 95% confidence interval is shown above, and the random effects all exclude 0
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year94_{tij} + \epsilon_{tij}$$
 
 - Level two (schools within postcodes) 
-  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + u_{0ij} \\ 
-    \pi_{1ij} = \beta_{10j} + \beta_{11j}unit_{ij} + u_{1ij}$$
+$$\begin{aligned} \pi_{0ij} &= \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + u_{0ij} \\ \pi_{1ij} &= \beta_{10j} + \beta_{11j}unit_{ij} + u_{1ij} \end{aligned}$$
 
 - Level three (postcodes)
-  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
-    \beta_{01j} = \gamma_{010} + r_{01j} \\
-    \beta_{02j} = \gamma_{020} + r_{02j} \\
-    \beta_{10j} = \gamma_{100} \\
-    \beta_{11j} = \gamma_{110}  $$
+$$\begin{aligned}\beta_{00j} &= \gamma_{000} + r_{00j} \\ \beta_{01j} &= \gamma_{010} + r_{01j} \\ \beta_{02j} &= \gamma_{020} + r_{02j} \\ \beta_{10j} &= \gamma_{100} \\ \beta_{11j} &= \gamma_{110} \end{aligned}$$
 
 
 Therefore, the composite model can be written as:

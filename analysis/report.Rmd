@@ -2,21 +2,40 @@
 title: "Report"
 author: "Brendi Ang"
 date: "01/11/2021"
+header-includes: 
+- \usepackage{float} 
+- \floatplacement{figure}{H}
+linestretch: 1.3
+mainfont: Arial
 output: 
-  bookdown::html_document2:
+  bookdown::pdf_document2:
     theme: flatly
-    citation_package: biblatex
     toc: true
-    number_sections: false
+    toc_depth: 4
     toc_float:
       collapsed: yes 
+    number_sections: false
 bibliography: references.bib
 biblio-style: apa
 link-citations: yes
 ---
 
+
 ```{r report-setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE, fig.height = 7, fig.width = 9, fig.align = "center")
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.pos = "H",
+  fig.height = 7,
+  fig.width = 9,
+  fig.align = "center"
+)
+
+options(knitr.table.format = function() {
+  if (knitr::is_latex_output())
+    "latex" else "html"
+})
 ```
 
 ```{r}
@@ -50,6 +69,8 @@ mathsci_all <- mathsci_all %>%
                           ),
                 ~ as.factor(.x))) 
 ```
+
+\clearpage
 
 # Objectives
 
@@ -111,6 +132,7 @@ data_desc <- tibble(
 data_desc %>% 
   kable(caption = "Description of the dataset used for the analysis") %>% 
   kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped")) %>% 
   pack_rows(index = c("Enrolment information" = 3,
                     "Subject information" = 4,
@@ -168,7 +190,9 @@ mathsci_all %>%
         col.names = c("Old subject name","New subject name"),
         booktabs = TRUE,
         align = "c") %>% 
-  kable_styling(full_width = FALSE) %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped")) %>% 
   # Partition subject type
   pack_rows(index = c("Applied Mathematics" = 1,
                       "General Mathematics" = 3)) 
@@ -207,7 +231,9 @@ mathsci_all %>%
         col.names = c("Old subject name","New subject name"),
         booktabs = TRUE,
         align = "c") %>% 
-  kable_styling(full_width = FALSE) %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))%>% 
   # Partition subject type
   pack_rows(index = c("Applied Sciences" = 3,
                       "General Sciences" = 7)) 
@@ -246,7 +272,11 @@ tibble(
                  "Rivermount College",
                  "Carinity Education")) %>% 
   kable(caption = "Example: Incompatible School names fixed by removing parantheses \"()\" and dash \"-\" ") %>% 
-  kable_styling(full_width = FALSE) %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", 
+                                  "HOLD_position",
+                                  "scale_down"),
+                bootstrap_options = c("hovered", "striped")) %>% 
   # Partition subject type
   pack_rows(index = c("Fixed by removing parantheses" = 3,
                       "Fixed by removing dashes" = 2))
@@ -270,6 +300,8 @@ tibble(
                                                 "'&' used instead of 'and'")) %>% 
   kable(caption = "Example: Manually fixing errors due to issues in School Nmaes") %>% 
   kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position",
+                                  "scale_down"),
                 bootstrap_options = c("hovered", "striped"))
 ```
 
@@ -460,7 +492,7 @@ mathsci_all %>%
        y = "Year 12 enrolments")
 ```
 
-A scatterplot of year 11 and year 12 are plotted in Figure \@ref(fig:year11-vs-year12), with a 45° line to facilitate the interpretation of the scatter plot, where it indicates a one unit increase in year 11 enrolments is matched with a one-unit increase in year 12 enrolments (*i.e.*perfect linear relationship). As already mentioned, the 0 enrolments in year 11 (as seen on the figure) is attributed to the Queensland's first Prep Year cohort in 2007 while the 0 enrolments in year 12 relates to the year where a school introduces the subject for the very first time (thus, there will be no year 12 students as most students have yet to complete year 11). 
+A scatterplot of year 11 and year 12 are plotted in Figure \@ref(fig:year11-vs-year12), with a 45° line to facilitate the interpretation of the scatter plot, where it indicates a one unit increase in year 11 enrolments is matched with a one-unit increase in year 12 enrolments (*i.e.* perfect linear relationship). As already mentioned, the 0 enrolments in year 11 (as seen on the figure) is attributed to the Queensland's first Prep Year cohort in 2007 while the 0 enrolments in year 12 relates to the year where a school introduces the subject for the very first time (thus, there will be no year 12 students as most students have yet to complete year 11). 
 
 Most subject demonstrates a linear relationship (lie on or **close to the red line**) between year 11 and year 12 students. Intuitively, this is reasonable as a student is likely to continue to complete the year 12 syllabus (unit 3 and 4) after completing his year 11 syllabus (unit 1 and 2). 
 
@@ -621,7 +653,7 @@ It is often helpful to rescale time variable so the first measurement occasion i
 
 #### Inherent nested structure
 
-```{r nested-structure, fig.cap = "Nested structure of the dataset"}
+```{r nested-structure, fig.cap = "Nested structure of the dataset", out.width = "80%", out.height = "130%"}
 knitr::include_graphics(here::here("images/nested-structure.png"))
 ```
 
@@ -673,16 +705,13 @@ At level three:
 
 In combining level 1,2 and 3, the composite model can be obtained:
 
-$$\begin{aligned} Y_{ij} & = \pi_{0ij} + \epsilon_{tij} \\
-         & = (\beta_{00j} + u_{0ij}) + \epsilon_{tij} \\
-         & = (\gamma_{000}) + (r_{00j} + u_{0ij} + \epsilon_{tij}) \end{aligned}$$
+$$\begin{aligned} Y_{ij} & = \pi_{0ij} + \epsilon_{tij} \\ & = (\beta_{00j} + u_{0ij}) + \epsilon_{tij} \\ & = (\gamma_{000}) + (r_{00j} + u_{0ij} + \epsilon_{tij}) \end{aligned}$$
 
 The model can be split into two parts. The 'fixed effects' will be represented in the first parentheses of the last expression, usually denoted by $\gamma$ while the 'random effects' will be represented in the second parentheses, denoted by $r$, $u$ and $\epsilon$ components. 
 
 where,
 
-$$\begin{aligned} \epsilon_{tij} & \sim N(0, \sigma^2) \\ u_{0ij} & \sim N(0, \tau^2_{00}) \\ 
-r_{00j} & \sim N(0, \phi^2_{00}) \end{aligned}$$
+$$\begin{aligned} \epsilon_{tij} & \sim N(0, \sigma^2) \\ u_{0ij} & \sim N(0, \tau^2_{00}) \\ r_{00j} & \sim N(0, \phi^2_{00}) \end{aligned}$$
 
 Where,
 - $\epsilon_{tij}$: Variance over time within schools
@@ -705,12 +734,10 @@ As with the unconditional means model, the unconditional growth model can be exp
 Where, `year` is the time variable.
 
 - Level two (schools within clusters)
-  $$\pi_{0ij} = \beta_{00j} + u_{0ij} \\
-    \pi_{1ij} = \beta_{10j} + u_{1ij}$$
+$$\begin{aligned} \pi_{0ij} &= \beta_{00j} + u_{0ij} \\ \pi_{1ij} &= \beta_{10j} + u_{1ij} \end{aligned}$$
   
 - Level three (clusters)
-  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
-    \beta_{10j} = \gamma_{100} + r_{10j}$$
+$$\begin{aligned}\beta_{00j} &= \gamma_{000} + r_{00j} \\ \beta_{10j} &= \gamma_{100} + r_{10j} \end{aligned}$$
     
     
 As compared to the null-model, the between-school and between-clusters variability are now partitioned into variability in initial status ($\tau^2_{00}$ and $\phi^2_{00j}$) and variability in rates of change ($\tau^2_{10}$ and $\phi^2_{10}$); *i.e.*
@@ -733,9 +760,7 @@ At level three:
 
 In combining the levels, the full composite model may be obtained:
 
-$$\begin{aligned} Y_{tij} &= \pi_{0ij} + \pi_{1ij}year_{tij} + \epsilon_{tij} \\ &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year_{tij} +  \epsilon_{tij} \\
-&= (\gamma_{000} + r_{00j} + u_{0ij})  + (\gamma_{100} + r_{10j} + u_{1ij})year_{tij} + \epsilon_{tij} \\
-&= [\gamma_{000} + \gamma_{100}year_{tij}] + [r_{00j} + u_{0ij} + \epsilon_{tij} + (r_{10j} + u_{1ij})year_{tij}] \end{aligned}$$
+$$\begin{aligned} Y_{tij} &= \pi_{0ij} + \pi_{1ij}year_{tij} + \epsilon_{tij} \\ &= (\beta_{00j} + u_{0ij}) + (beta_{10j} + u_{1ij})year_{tij} +  \epsilon_{tij} \\ &= (\gamma_{000} + r_{00j} + u_{0ij})  + (\gamma_{100} + r_{10j} + u_{1ij})year_{tij} + \epsilon_{tij} \\ &= [\gamma_{000} + \gamma_{100}year_{tij}] + [r_{00j} + u_{0ij} + \epsilon_{tij} + (r_{10j} + u_{1ij})year_{tij}] \end{aligned}$$
 
 With, $\epsilon_{ijk} \sim N(0, \sigma^2)$,
 
@@ -766,7 +791,7 @@ Naturally, this suggests that the model requires re-parameterisation by altering
   
 With respect to the unconditional growth model, the model is simplified by setting the error term $r_{10}j = 0$ (and therefore $r_{10} = 0$) at level three:
 
-$$\beta_{00j} = \gamma_{000} + r_{00j} \\ \beta_{10j} = \gamma_{100}$$
+$$\begin{aligned} \beta_{00j} = \gamma_{000} + r_{00j} \\ \beta_{10j} = \gamma_{100} \end{aligned}$$
  
 This implies that the model's error assumption at level three will turn into a univariate (as opposed to a multivariate) normal distribution.
 Furthermore, this will also imply that level-three (*e.g.*) clusters will be associated with the same growth rate; In other words, each cluster will have the same rate of change in enrolments for each year. In most cases, removing these parameters will have an insignificant impact on the fixed effects. Therefore, the benefit of this approach is that it will lead to a more parsimonious model that is not over-fitted and free from any boundary constraints.
@@ -783,7 +808,7 @@ At this point, the model only has a dedicated time variable that makes the multi
 
 #### Forward Stepwise Approach to select the best model
 
-```{r, fig.align = "center"}
+```{r, fig.align = "center", out.height = "50%"}
 knitr::include_graphics(here::here("images/fixed-effects.png"))
 ```
 
@@ -799,7 +824,7 @@ The parametric bootstrap better approximates the correct $p$-value for the corre
 #### Process 
 
 In conducting the parametric bootstrap involving variance terms at the boundary, the null and alternative hypothesis can be written as:
-$$H_0: \phi^2_{00} = \phi_{01} \ne 0 \\ H_A: \phi^2_{00} = \phi_{01} = 0 $$
+$$\begin{aligned} H_0: \phi^2_{00} = \phi_{01} \ne 0 \\ H_A: \phi^2_{00} = \phi_{01} = 0 \end{aligned}$$
 
 (1) Begin by fitting both (full and smaller) models to the actual data with maximum likelihood estimates to obtain the actual likelihood ratio test statistic ($2 \times logL(\text{full model}) - logL(\text{reduced model})$). This will be called the "actual (observed) likelihood ratio test statistic".
 
@@ -866,34 +891,36 @@ As the report is constrained to a maximum of 10,000 words, only the enrolments f
 
 As the report is constrained to a maximum of 10,000 words, only the enrolments for the four mathematics subjects will be considered. Please refer to [this GitHub](https://github.com/BrendiA/ETC5543-proj) for the predictions for the predictions of science subjects.
 
-```{r, child="models/agricultural-practices.Rmd", eval=FALSE}
+```{r, child="models/agricultural-practices.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/agricultural-science.Rmd", eval=FALSE}
+```{r, child="models/agricultural-science.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/aquatic-practices.Rmd", eval=FALSE}
+```{r, child="models/aquatic-practices.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/biology.Rmd", eval=FALSE}
+```{r, child="models/biology.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/chemistry.Rmd", eval=FALSE}
+```{r, child="models/chemistry.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/earth-and-environmental-science.Rmd", eval=FALSE}
+```{r, child="models/earth-and-environmental-science.Rmd", eval=TRUE}
 ```
 
-```{r, child="models/marine-science.Rmd", eval=FALSE}
+```{r, child="models/marine-science.Rmd", eval=TRUE}
 ```
 
 ```{r, child="models/physics.Rmd", eval=FALSE}
 ```
 
-```{r, child="models/science-in-practice.Rmd", eval=FALSE}
+```{r, child="models/science-in-practice.Rmd", eval=TRUE}
 ```
 
 # Conclusion
+
+## Findings 
 
 This report explores the various trends in enrolments in the old and new QCE system. In general, a large increase in enrolments can be seen in the new QCE system, which is attributable to the 2007 prep year cohort leaving the school system, allowing each year (from 2020 onwards) in the new QCE system to have a full cohort.
 
@@ -902,6 +929,8 @@ A multilevel model was built to predict enrolments for year 11 and year 12. Some
 ## Where do we go from here?
 
 This report offers a broad overview of the enrolments in Australia. An advantage of using multilevel model is that both intra-school change (*i.e.* how school enrolments are changing overtime) and interindividual change (*i.e.* Differences in temporal change across schools) may be recorded. Thus, the analysis will shift to creating a (shiny) web application to zoom in at the more granular (*e.g.* single school) statistics and information. The interactive features of the application will allow for a more personalised platform for the different needs of users, from extracting information about a single school to comparing enrolments across the different districts. It will include It also aims to incorporate spatial analysis such as the map of Queensland schools to further scrutinise the enrolment trends in the new QCE system.
+
+\clearpage 
 
 # Acknowledgement
 
@@ -919,6 +948,8 @@ The following packages have been included in our Rmd file.
 -   package lme4 (0.6.7) [@lme4]
 -   package patchwork (1.1.1) [@patchwork]
 -   package naniar (0.6.0) [@naniar]
+
+\clearpage
 
 # References
 

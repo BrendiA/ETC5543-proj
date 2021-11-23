@@ -2,15 +2,36 @@
 title: "Multilevel Model for General mathematics"
 author: "Brendi Ang"
 date: "17/10/2021"
+header-includes: 
+- \usepackage{float} 
+- \floatplacement{figure}{H}
+linestretch: 1.3
+mainfont: Arial
 output: 
-  bookdown::html_document2:
+  bookdown::pdf_document2:
     theme: flatly
     toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: yes 
     number_sections: false
 ---
 
 ```{r gen-math-setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.pos = "H",
+  fig.height = 7,
+  fig.width = 9,
+  fig.align = "center"
+)
+
+options(knitr.table.format = function() {
+  if (knitr::is_latex_output())
+    "latex" else "html"
+})
 ```
 
 ```{r, include=FALSE}
@@ -86,7 +107,7 @@ All zero enrolments in a given year will be removed for modelling. As aforementi
 
 ### Linearise response variable using log transformation
 
-```{r}
+```{r gen-math-log-scale, fig.cap = "Effects of log transformation for response variable (enrolments) in General Mathematics"}
 p1 <- gen_math_long %>%
   ggplot(aes(x = enrolments)) +
   geom_histogram(binwidth = 15,
@@ -114,7 +135,7 @@ p2 <- gen_math_long %>%
 p1 / p2
 ```
 
-The enrolments were right skewed, which is likely to be attributed to the various school sizes (as seen in Figure \@ref(fig:earth-sci-eda)). A log transformation was implemented to the response variable (*i.e.* `enrolments`) to allow the the multilevel model to better capture the enrolment patterns. 
+The enrolments were right skewed, which is likely to be attributed to the various school sizes (as seen in Figure \@ref(fig:gen-math-log-scale)). A log transformation was implemented to the response variable (*i.e.* `enrolments`) to allow the the multilevel model to better capture the enrolment patterns. 
 
 ```{r}
 # --- Cleaning script
@@ -156,7 +177,7 @@ model0.2 <- lmer(log_enrolments ~ 1 + (1 | qcaa_district/qcaa_school_id),
                  data = gen_math_long)
 ```
 
-```{r}
+```{r gen-math-init-models}
 # Obtain AIC for each null model
 model0_AIC <- AIC(model0.0, model0.1, model0.2) 
 
@@ -167,8 +188,11 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable() %>% 
+  kable(caption = "AIC values for all candidate models for General Mathematics",
+        booktabs = TRUE,
+        linesep = "") %>% 
   kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
 ```
 
@@ -372,8 +396,12 @@ model_anova %>%
   mutate(model = rownames(model_anova),
          .before = AIC) %>% 
   arrange(AIC) %>% 
-  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "AIC for all possible models with different combinations of fixed effects",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 As highlighted in [step 6](#step-six), `sector` and `unit` will be added as predictors to the model. The largest possible model will be fitted, before removing fixed effects one by one while recording the AIC for each model. In this case, `model4.0` corresponds to the largest possible model while `model4.10` is the smallest possible model. The model with the optimal (lowest) AIC is `model4.4` (Table \@ref(tab:gen-math-test-fixef)). The next section will test the selected model's random effects to build the final model.
@@ -497,15 +525,22 @@ save(confint_f, file = here::here("data/confint/gen-math.rda"))
 
 ```{r}
 load(here::here("data/confint/gen-math.rda"))
+```
 
+```{r gen-math-confint}
 as_tibble(confint_f) %>% 
   mutate(var = rownames(confint_f),
          .before = `2.5 %`) %>% 
-  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model",
+        booktabs = TRUE,
+        linesep = "",
+        format = "pandoc") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
-The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0 (Table \@ref(tab:gen-math-confint)), indicating that they're different from 0 in the population (*i.e.* statistically significant).
 
 ## Interpreting final model
 
@@ -515,21 +550,16 @@ The parametric bootstrap is utilised to construct confidence intervals (detailed
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij}$$
 
 - Level two (schools within districts) will contain new predictor(`sector`)
-  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij} \\ 
-    \pi_{1ij} = \beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + \beta_{13j}sector_{ij}unit_{ij} + u_{1ij}$$
+$$\begin{aligned} \pi_{0ij} &= \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij} \\ \pi_{1ij} &= \beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + \beta_{13j}sector_{ij}unit_{ij} + u_{1ij} \end{aligned}$$
 
 - Level three (districts)
-  $$\beta_{00j} = \gamma_{000} + r_{00j} \\
-    \beta_{01j} = \gamma_{010} + r_{01j} \\
-    \beta_{02j} = \gamma_{020} + r_{02j} \\
-    \beta_{03j} = \gamma_{030} + r_{03j} \\
-    \beta_{10j} = \gamma_{100} \\
-    \beta_{11j} = \gamma_{110} \\
-    \beta_{12j} = \gamma_{120} \\
-    \beta_{13j} = \gamma_{130}$$
+$$\begin{aligned}\beta_{00j} &= \gamma_{000} + r_{00j} \\ \beta_{01j} &= \gamma_{010} + r_{01j} \\ \beta_{02j} &= \gamma_{020} + r_{02j} \\
+\beta_{03j} &= \gamma_{030} + r_{03j} \\ \beta_{10j} &= \gamma_{100} \\ \beta_{11j} &= \gamma_{110} \\ \beta_{12j} &= \gamma_{120} \\ \beta_{13j} &= \gamma_{130}\end{aligned}$$
 
 The composite model can therefore be written as:
 $$\begin{aligned} Y_{tij} =\ & \pi_{0ij} + \pi_{1ij}year92_{tij} + \epsilon_{tij} \\ =\ & (\beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + \beta_{13j}sector_{ij}unit_{ij} + u_{1ij})year92_{tij} + \epsilon_{tij} \\ =\ & \left[\gamma_{000} + r_{00j} + (\gamma_{010} + r_{01j})sector_{ij} + (\gamma_{020} + r_{02j})unit_{ij} + (\gamma_{030} + r_{03j})sector_{ij}unit_{ij} + u_{0ij} \right] + \\ & \left[\gamma_{100} + \gamma_{110}sector_{ij} + \gamma_{120}unit_{ij} + \gamma_{130}sector_{ij}unit_{ij} + u_{1ij}\right]year92_{tij} + \epsilon_{tij} \\ =\ & \left[\gamma_{000} + \gamma_{010}sector_{ij} + \gamma_{020}unit_{ij} + \gamma_{030}sector_{ij}unit_{ij} + \gamma_{100}year92_{tij} + \gamma_{110}year92_{tij}sector_{ij} + \gamma_{120}unit_{ij}year92_{tij} + \gamma_{130}sector_{ij}unit_{ij}year92_{tij} \right] + \\ & \left[r_{00j} + r_{01j}sector_{ij} + r_{02j}unit_{ij} + r_{03j}sector_{ij}unit_{ij} + u_{0ij]} + u_{1ij}year92_{tij} + \epsilon_{tij} \right]  \end{aligned}$$
+
+
 ### Fixed effects
 
 ```{r}
@@ -661,7 +691,7 @@ ranef_school_f %>%
 
 A large negative correlation between the random intercept and slope at the school level is apparent (Figure \@ref(fig:gen-math-school-ranef). This suggests that a larger school is associated with a smaller increase (decrease) in enrolments over the years while smaller schools are predicted to have large increase in enrolments over the years. 
 
-```{r}
+```{r gen-math-distrcit-ranef, fig.cap = "Random intercept for districts"}
 # Plot random effects for between districts
 ranef_district_f %>% 
 # Reorder group based on by conditional means
@@ -676,9 +706,11 @@ ranef_district_f %>%
              scales = "free_x")
 ```
 
+As the random slopes are removed, all districts are predicted to have the same increase in enrolments over the years; And as was discussed previously, this was a reasonable assumption or an otherwise perfect correlation with random slope and intercept will be fitted. Figure \@ref(fig:gen-math-distrcit-ranef) demonstrates that schools in Gold Coast has the largest enrolments, on average.
+
 ### Predictions
 
-```{r}
+```{r gen-math-pred, fig.cap = "Model predictions for year 11 enrolments for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for unit 11 enrolments
 set.seed(136)
 gen_math_long %>% 
@@ -697,7 +729,7 @@ gen_math_long %>%
 ```
 
 
-
+Figure \@ref(fig:gen-math-pred) above shows the predictions for 20 randomly selected schools.
 
 
 

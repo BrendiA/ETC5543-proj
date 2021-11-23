@@ -2,17 +2,38 @@
 title: "Multilevel Model for Science in Practice"
 author: "Brendi Ang"
 date: "17/10/2021"
+header-includes: 
+- \usepackage{float} 
+- \floatplacement{figure}{H}
+linestretch: 1.3
+mainfont: Arial
 output: 
-  bookdown::html_document2:
+  bookdown::pdf_document2:
     theme: flatly
     toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: yes 
     number_sections: false
 ---
 
 # Science in Practice 
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+```{r sci-in-prac-setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.pos = "H",
+  fig.height = 7,
+  fig.width = 9,
+  fig.align = "center"
+)
+
+options(knitr.table.format = function() {
+  if (knitr::is_latex_output())
+    "latex" else "html"
+})
 ```
 
 ```{r, include=FALSE}
@@ -114,7 +135,7 @@ p2 <- sci_prac_long %>%
 p1 / p2
 ```
 
-As multilevel model assumes normality in the error terms, a log transformation is utilised to allow models to be estimated by the linear mixed models. The log transformation allows enrolment numbers to be approximately normally distributed (Figure \@ref(fig:spec-math-log-scale).
+As multilevel model assumes normality in the error terms, a log transformation is utilised to allow models to be estimated by the linear mixed models. The log transformation allows enrolment numbers to be approximately normally distributed (Figure \@ref(fig:sci-prac-log-scale).
 
 
 ```{r}
@@ -168,8 +189,11 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-    kable(caption = "AIC values for all candidate models for Earth and Environmental Science") %>% 
+  kable(caption = "AIC values for all candidate models for Science in Practice",
+        booktabs = TRUE,
+        linesep = "") %>% 
   kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
 ```
 
@@ -312,8 +336,12 @@ model_anova %>%
   mutate(model = rownames(model_anova),
          .before = npar) %>% 
   arrange(AIC) %>% 
-  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "AIC for all possible models with different combinations of fixed effects",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 As summarise in [step 6](#step-six), level-two predictors `sector` and `unit` will be added to the model. The largest possible model (`model4.0`) will first be fitted, before iteratively removing fixed effects one at a time (with `model4.10` being the smallest of all 10 candidate models), whilst recording the AIC for each model. `model4.1` appears to have the optimal (smallest) AIC (Table \@ref(tab:sci-prac-test-fixef)), and will be used in the next section in building the final model.
@@ -388,12 +416,16 @@ bootstrapLRT <- bootstrapAnova(mA = balt,
 save(bootstrapLRT, file = here::here("data/bootstrapLRT/sci-prac.rda"))
 ```
 
-```{r earth-sci-bootstrapLRT-tab}
+```{r sci-in-prac-bootstrapLRT-tab}
 load(here::here("data/bootstrapLRT/sci-prac.rda"))
 
 as_tibble(bootstrapLRT) %>% 
-  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 
@@ -422,7 +454,7 @@ ggplot(nullLRT.1) +
 
 The parametric bootstrap is used to approximate the likelihood ratio test statistic to produce a more accurate p-value by simulating data under the null hypothesis (detailed explanation can be found in [step 7](#step-seven). The p-value indicates the proportion of times in which the bootstrap test statistic is greater than the observed test statistic. Figure \@ref(fig:sci-prac-bootstrapLRT-fig) displays the likelihood ratio test statistic from the null distribution, with the red line indicates the likelihood ratio test statistic using the actual data. 
 
-There is overwhelming statistical evidence ($\chi^2$ = 208.623 and $p$-value = 0 from Table \@ref(tab:earth-sci-bootstrapLRT-tab)) that the larger model (including random slope at level two) is the better model.
+There is overwhelming statistical evidence ($\chi^2$ = 208.623 and $p$-value = 0 from Table \@ref(tab:sci-in-prac-bootstrapLRT-tab)) that the larger model (including random slope at level two) is the better model.
 
 ## Confidence interval
 
@@ -442,17 +474,22 @@ confint_f <- confint(model_f,
 save(confint_f, file = here::here("data/confint/sci-prac.rda"))
 ```
 
-```{r}
-load(here::here("data/confint/earth-sci.rda"))
+```{r sci-in-prac-confint}
+load(here::here("data/confint/sci-prac.rda"))
 
 as_tibble(confint_f) %>% 
   mutate(var = rownames(confint_f),
          .before = `2.5 %`) %>% 
-  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model",
+        booktabs = TRUE,
+        linesep = "",
+        format = "pandoc") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
-The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0, indicating that they're different from 0 in the population (*i.e.* statistically significant).
+The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0 (Table \@ref(tab:sci-in-prac-confint)), indicating that they're different from 0 in the population (*i.e.* statistically significant).
 
 
 ## Interpreting final model
@@ -463,8 +500,7 @@ The parametric bootstrap is utilised to construct confidence intervals (detailed
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year10_{tij} + \epsilon_{tij}$$
 
 - Level two (schools within districts) 
-  $$\pi_{0ij} = \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij} \\ 
-    \pi_{1ij} = \beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12}unit_{ij} + u_{1ij}$$
+$$\begin{aligned} \pi_{0ij} &= \beta_{00j} + \beta_{01j}sector_{ij} + \beta_{02j}unit_{ij} + \beta_{03j}sector_{ij}unit_{ij} + u_{0ij} \\ \pi_{1ij} &= \beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12}unit_{ij} + u_{1ij} \end{aligned}$$
 
 Therefore, the composite model can be written as
 
@@ -608,9 +644,9 @@ ranef_school_f %>%
              scales = "free_x")
 ```
     
-Figure \@ref(fig:) shows the random effects for all 196 schools that offered the subject. There is a clear negative correlation (-0.80) between the random intercept and the random slope, which indicates that in general, schools with lesser enrolments are generally matched with a larger increase in enrolments over the years.
+Figure \@ref(fig:sci-prac-school-ranef) shows the random effects for all 196 schools that offered the subject. There is a clear negative correlation (-0.80) between the random intercept and the random slope, which indicates that in general, schools with lesser enrolments are generally matched with a larger increase in enrolments over the years.
 
-## Predictions
+### Predictions
 
 ```{r sci-prac-pred, fig.cap = "Model predictions for year 11 enrolments for 20 randomly selected schools"}
 # Predictions for 20 randomly selected schools for year 11 enrolments

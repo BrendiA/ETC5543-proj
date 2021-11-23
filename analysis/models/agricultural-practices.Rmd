@@ -2,16 +2,38 @@
 title: "Multilevel Model for Agricultural Practices"
 author: "Brendi Ang"
 date: "17/10/2021"
+header-includes: 
+- \usepackage{float} 
+- \floatplacement{figure}{H}
+linestretch: 1.3
+mainfont: Arial
 output: 
-  bookdown::html_document2:
+  bookdown::pdf_document2:
     theme: flatly
     toc: true
+    toc_depth: 4
+    toc_float:
+      collapsed: yes 
     number_sections: false
 ---
 
 ```{r agri-prac-setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(
+  echo = FALSE,
+  message = FALSE,
+  warning = FALSE,
+  fig.pos = "H",
+  fig.height = 7,
+  fig.width = 9,
+  fig.align = "center"
+)
+
+options(knitr.table.format = function() {
+  if (knitr::is_latex_output())
+    "latex" else "html"
+})
 ```
+
 
 ```{r, include=FALSE}
 library(tidyverse)
@@ -208,8 +230,11 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable(caption = "AIC values for all candidate models for Agricultural Practices") %>% 
+  kable(caption = "AIC values for all candidate models for Agricultural Practices",
+        booktabs = TRUE,
+        linesep = "") %>% 
   kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
 ```
   
@@ -358,8 +383,12 @@ model_anova %>%
   mutate(model = rownames(model_anova),
          .before = npar) %>% 
   arrange(AIC) %>% 
-  kable(caption = "AIC for all possible models with different combinations of fixed effects") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "AIC for all possible models with different combinations of fixed effects",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 As outlined in [step 6](#step-six), `sector` and `unit` will be added as predictors to the model. The largest possible model (`model4.0`) will then be fitted, before removing the fixed effects one at a time (with `model4.10` being the smallest of all 10 candidate models), while recording the AIC for each model. `model4.5` appears to have the optimal (smallest) AIC (Table \@ref(tab:agri-prac-test-fixef)), and will be used in the next section to build the final model.
@@ -408,7 +437,6 @@ bootstrapAnova <- function(mA, m0, B = 1000){
 
 ```{r}
 # Best model based on AIC and BIC
-model4.5
 
 # Proposed model
 balt <-
@@ -441,8 +469,12 @@ save(bootstrapLRT, file = here::here("data/bootstrapLRT/agri-prac.rda"))
 load(here::here("data/bootstrapLRT/agri-prac.rda"))
 
 as_tibble(bootstrapLRT) %>% 
-  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model",
+        booktabs = TRUE,
+        linesep = "") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 ```{r agri-prac-bootstrapLRT-fig, fig.cap = "Histogram of likelihood ratio test statistic, with a red vertical line indicating the likelihood ratio test statistic for the actual model"}
@@ -493,14 +525,21 @@ confint_f <- confint(model_f,
 save(confint_f, file = here::here("data/confint/agri-prac.rda"))
 ```
 
-```{r agri-prac-confint}
+```{r}
 load(here::here("data/confint/agri-prac.rda"))
+```
 
+```{r agri-prac-confint}
 as_tibble(confint_f) %>% 
   mutate(var = rownames(confint_f),
          .before = `2.5 %`) %>% 
-  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
-  kable_styling(full_width = FALSE)
+  kable(caption = "95% confidence interval for the fixed and random effects",
+        booktabs = TRUE,
+        linesep = "",
+        format = "pandoc") %>% 
+  kable_styling(full_width = FALSE,
+                latex_options = c("striped", "HOLD_position"),
+                bootstrap_options = c("hovered", "striped"))
 ```
 
 The parametric bootstrap is utilised to construct confidence intervals (detailed explanation in [step 8](#step-eight)) for the random effects. If the confidence intervals between the random effects does not include 0, it provides statistical evidence that the p-value is less than 0.5. In other words, it suggests that the random effects and the correlation between the random effects are significant at the 5% level. The confidence interval for the random effects all exclude 0 (Table \@ref(tab:agri-prac-confint)), indicating that they're different from 0 in the population (*i.e.* statistically significant).
@@ -508,7 +547,7 @@ The parametric bootstrap is utilised to construct confidence intervals (detailed
 ## Interpreting the final model
 
 ### Composite model
-
+ 
 - Level one (measurement variable)
 $$Y_{tij} = \pi_{0ij} + \pi_{1ij}year15_{tij} + \epsilon_{tij}$$
 
@@ -520,6 +559,7 @@ $$\begin{aligned}
 Therefore, the composite model can be written as
 
 $$\begin{aligned}Y_{tij} =\ &  \pi_{0ij} + \pi_{1ij}year15_{tij} + \epsilon_{tij} \\ =\ & (\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + u_{0ij}) + (\beta_{10j} + \beta_{11j}sector_{ij} + \beta_{12j}unit_{ij} + u_{1ij})year15_{tij} + \epsilon_{tij} \\ =\ & \left[\beta_{00j} + \beta_{01}sector_{ij} + \beta_{02}unit_{ij} + \beta_{10j}year15_{tij} + \beta_{11j}sector_{ij}year15_{tij} + \beta_{12j}unit_{ij}year15_{tij} \right] \left[u_{0ij} + u_{1ij} + \epsilon_{tij} \right] \end{aligned}$$
+   
 
 ### Fixed effects
 
@@ -638,7 +678,7 @@ Based on the fixed effects (see [step 9](##step-nine) for detailed explanation),
 ### Random effects
 
 ```{r}
-# Random effects for all schools
+# Random effects for all schoolsn
 ranef_school_f <- as_tibble(ranef(model_f)) %>%
   # Rename intercept and slope names
   mutate(term = if_else(term == "(Intercept)",
