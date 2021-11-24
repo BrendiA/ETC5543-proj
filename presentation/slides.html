@@ -4,13 +4,13 @@
     <title>Predicting Mathematics &amp; Science  Enrolments in Queensland Senior Schools</title>
     <meta charset="utf-8" />
     <meta name="author" content="Brendi Ang" />
-    <meta name="date" content="2021-11-11" />
+    <meta name="date" content="2021-11-24" />
     <script src="libs/header-attrs/header-attrs.js"></script>
     <link href="libs/panelset/panelset.css" rel="stylesheet" />
     <script src="libs/panelset/panelset.js"></script>
     <script src="libs/kePrint/kePrint.js"></script>
     <link href="libs/lightable/lightable.css" rel="stylesheet" />
-    <link rel="stylesheet" href="footer_plus.css" type="text/css" />
+    <link rel="stylesheet" href="custom.css" type="text/css" />
   </head>
   <body>
     <textarea id="source">
@@ -466,7 +466,7 @@ Dataset can be broken down in 3 components:
 
 .center[
 
-####➗ Mathematics ➖
+####➕ Mathematics ➗
 &lt;table class="table" style="font-size: 15px; width: auto !important; margin-left: auto; margin-right: auto;"&gt;
 &lt;caption style="font-size: initial !important;"&gt;Senior Mathematics subjects in the new QCE system&lt;/caption&gt;
  &lt;thead&gt;
@@ -501,7 +501,7 @@ Dataset can be broken down in 3 components:
 
 .panel[.panel-name[Science]
 .center[
-#### 🧪Science 🔬
+#### 🔭Science 🔭
 &lt;table class="table" style="font-size: 15px; width: auto !important; margin-left: auto; margin-right: auto;"&gt;
 &lt;caption style="font-size: initial !important;"&gt;Senior Science subjects in the new QCE system&lt;/caption&gt;
  &lt;thead&gt;
@@ -609,7 +609,7 @@ class: middle
 
 .panelset[
 .panel[.panel-name[Plot]
-&lt;img src="slide-01_files/figure-html/unnamed-chunk-6-1.png" width="864" /&gt;
+&lt;img src="slides_files/figure-html/unnamed-chunk-6-1.png" width="864" /&gt;
 ]
 .panel[.panel-name[Findings]
 .pull-left[
@@ -651,7 +651,7 @@ class: center, middle, inverse
 .panelset[
 .panel[.panel-name[Plot]
 
-&lt;img src="slide-01_files/figure-html/totalenrol-1.png" width="864" /&gt;
+&lt;img src="slides_files/figure-html/totalenrol-1.png" width="864" /&gt;
 
 ]
 .panel[.panel-name[Findings]
@@ -691,7 +691,7 @@ class: center, middle, inverse
 
 
 
-&lt;img src="slide-01_files/figure-html/timeplotenrolments-1.png" width="864" /&gt;
+&lt;img src="slides_files/figure-html/timeplotenrolments-1.png" width="864" /&gt;
 
 ]
 .panel[.panel-name[Findings]
@@ -705,7 +705,7 @@ class: center, middle, inverse
   
 **Some schools showed erratic enrolment patterns**
 - The erratic patterns are usually associated with subjects with generally small enrolment numbers.
-  - *e.g.* Agricultural Science and Earth and Environmental science 🌎.
+  - *e.g.* Agricultural Science and Earth and Environmental science 🌍.
 
 ]
 ]
@@ -731,7 +731,7 @@ class: center, middle, inverse
 .panelset[
 .panel[.panel-name[Plot]
 
-&lt;img src="slide-01_files/figure-html/pursueyear12-1.png" width="864" /&gt;
+&lt;img src="slides_files/figure-html/pursueyear12-1.png" width="864" /&gt;
 
 ]
 .panel[.panel-name[Findings]
@@ -834,7 +834,7 @@ class: center, middle, inverse
 
 
 
-&lt;img src="slide-01_files/figure-html/linearmodel-1.png" width="720" /&gt;
+&lt;img src="slides_files/figure-html/linearmodel-1.png" width="720" /&gt;
 ]
 .panel[.panel-name[Findings]
 
@@ -873,14 +873,14 @@ Top-left: School 11 are one of the **larger schools** as compared to the other s
 
 .bold[.fontinverse[Removing zero enrolments in the data]]
 
-&lt;img src="slide-01_files/figure-html/removezero-1.png" width="576" style="display: block; margin: auto;" /&gt;
+&lt;img src="slides_files/figure-html/removezero-1.png" width="576" style="display: block; margin: auto;" /&gt;
 ]
 
 .panel[.panel-name[Linearise]
 
 .bold[.fontinverse[Linearise response variable using log transformation]]
 
-&lt;img src="slide-01_files/figure-html/linearlog-1.png" width="720" style="display: block; margin: auto;" /&gt;
+&lt;img src="slides_files/figure-html/linearlog-1.png" width="720" style="display: block; margin: auto;" /&gt;
 ]
 ]
 
@@ -1200,12 +1200,16 @@ With, `\(\epsilon_{ijk} \sim N(0, \sigma^2)\)`,
    &lt;td style="text-align:left;"&gt; model4.1 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
+   &lt;td style="text-align:right;"&gt; 24503.07 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.5 &lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
    &lt;td style="text-align:right;"&gt; 24506.68 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; model4.0 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
-   &lt;td style="text-align:right;"&gt; 24517.83 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; model4.5 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
+   &lt;td style="text-align:left;"&gt; model4.9 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
@@ -1216,19 +1220,15 @@ With, `\(\epsilon_{ijk} \sim N(0, \sigma^2)\)`,
    &lt;td style="text-align:left;"&gt; model4.8 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
-   &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24542.27 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; model4.10 &lt;/td&gt;
-  &lt;/tr&gt;
-  &lt;tr&gt;
-   &lt;td style="text-align:right;"&gt; 24542.26 &lt;/td&gt;
-   &lt;td style="text-align:left;"&gt; model4.9 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
    &lt;td style="text-align:right;"&gt; 24544.00 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; model4.6 &lt;/td&gt;
   &lt;/tr&gt;
   &lt;tr&gt;
-   &lt;td style="text-align:right;"&gt; 24554.30 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 24544.08 &lt;/td&gt;
    &lt;td style="text-align:left;"&gt; model4.3 &lt;/td&gt;
   &lt;/tr&gt;
 &lt;/tbody&gt;
@@ -1299,7 +1299,7 @@ With, `\(\epsilon_{ijk} \sim N(0, \sigma^2)\)`,
    &lt;td style="text-align:right;"&gt; 24469.28 &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 7.2276 &lt;/td&gt;
    &lt;td style="text-align:right;"&gt; 2 &lt;/td&gt;
-   &lt;td style="text-align:right;"&gt; 0.006 &lt;/td&gt;
+   &lt;td style="text-align:right;"&gt; 0.003 &lt;/td&gt;
   &lt;/tr&gt;
 &lt;/tbody&gt;
 &lt;/table&gt;
@@ -1309,7 +1309,7 @@ With, `\(\epsilon_{ijk} \sim N(0, \sigma^2)\)`,
 .center[
 
 
-&lt;img src="slide-01_files/figure-html/unnamed-chunk-24-1.png" width="576" /&gt;
+&lt;img src="slides_files/figure-html/unnamed-chunk-24-1.png" width="576" /&gt;
 ]
 ]
 ]
@@ -1376,19 +1376,19 @@ model_f &lt;- lmer(log_enrolments ~ year92 + sector + year92:sector + unit + sec
 
 
 
-&lt;img src="slide-01_files/figure-html/unnamed-chunk-28-1.png" width="504" style="display: block; margin: auto;" /&gt;
+&lt;img src="slides_files/figure-html/unnamed-chunk-28-1.png" width="504" style="display: block; margin: auto;" /&gt;
 ]
 
 .panel[.panel-name[Random Effects]
 
 
 .center[
-&lt;img src="slide-01_files/figure-html/unnamed-chunk-30-1.png" width="504" style="display: block; margin: auto;" /&gt;
+&lt;img src="slides_files/figure-html/unnamed-chunk-30-1.png" width="504" style="display: block; margin: auto;" /&gt;
 ]]
 
 .panel[.panel-name[Random Effects]
 .center[
-&lt;img src="slide-01_files/figure-html/unnamed-chunk-31-1.png" width="504" style="display: block; margin: auto;" /&gt;
+&lt;img src="slides_files/figure-html/unnamed-chunk-31-1.png" width="504" style="display: block; margin: auto;" /&gt;
 ]
 ]
 ]
@@ -1422,7 +1422,7 @@ class: center
 
 --
 
-&lt;img src="slide-01_files/figure-html/unnamed-chunk-32-1.png" width="504" /&gt;
+&lt;img src="slides_files/figure-html/unnamed-chunk-32-1.png" width="504" /&gt;
 
 ---
 
