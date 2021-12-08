@@ -1,0 +1,142 @@
+---
+title: "qld-map"
+author: "Brendi Ang"
+date: "18/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggmap)
+library(janitor)
+library(leaflet)
+library(leaflet.extras)
+library(ozmaps)
+library(sf)
+
+# Retrieve API key for Geocoding
+register_google(key = "AIzaSyBzrrkZd-mKctYuTu94Jxmx7pmijb-ZVgQ")
+```
+
+```{r}
+# Read-in map data
+school_sf <- sf::read_sf(here::here("data/Senior-Secondary-sites-2020.kml")) 
+```
+
+```{r, include=FALSE, warning=FALSE}
+# Read-in data
+mathsci_all <- read_csv(here::here("data/mathsci_all.csv"),
+                        col_types = cols(doe_centre_code = col_factor()))
+
+# Convert data types
+mathsci_all <- mathsci_all %>% 
+  mutate(across(.cols = c(qcaa_subject_id, 
+                          subject_type,
+                          qcaa_school_id,
+                          sector,
+                          school_postcode
+                          ),
+                ~ as.factor(.x))) 
+```
+
+```{r}
+# Remove schools that existed before year 2002 and not after
+mathsci_all <- mathsci_all %>% 
+  filter(!is.na(doe_centre_code)) 
+```
+
+# Data Cleaning
+
+```{r}
+# --- Clean map data
+
+# Clean names
+school_sf <- school_sf %>% 
+  janitor::clean_names() %>% 
+  rename(school_name = name,
+         doe_centre_code = description)
+
+# If DoE centre code starts with 0, remove first 0
+# to match with mathsci_all dataset
+school_sf <- school_sf %>% 
+  mutate(doe_centre_code = str_replace(doe_centre_code,
+                                       pattern = "^[0]",
+                                       ""))
+
+# Change doe_centre_code that does not match
+school_sf <- school_sf %>% 
+  mutate(doe_centre_code = case_when(
+    doe_centre_code == "6148" ~ "1315",
+    doe_centre_code == "5668" ~ "5666",
+    doe_centre_code == "5148" ~ "5147",
+    doe_centre_code == "1407" ~ "5399",
+    TRUE ~ doe_centre_code
+  )) 
+```
+
+
+```{r}
+# Update school names to matchsci_all df
+school_sf <- school_sf %>% 
+  left_join(distinct(mathsci_all, qcaa_school_id, school_name, doe_centre_code), by = c("doe_centre_code")) %>% 
+  select(qcaa_school_id, doe_centre_code, school_name.y) %>%
+  rename(school_name = school_name.y) %>% 
+  # No data for Aurukun State School and Lockhart State School
+  filter(!is.na(school_name))
+
+school_sf <- school_sf %>% 
+  relocate(school_name, .before = doe_centre_code)
+```
+
+- No data for Aurukun State School and Lockhart State School.
+
+# Geocoding
+
+```{r}
+# Filter to schools in mathsci_all data but not in school data
+locations <- mathsci_all %>% 
+  distinct(qcaa_school_id, doe_centre_code, school_name, qcaa_district, school_postcode) %>% 
+  filter(doe_centre_code %in% setdiff(mathsci_all$doe_centre_code, school_sf$doe_centre_code)) 
+
+# Add rough address for geocoding
+locations <- locations %>% 
+  mutate(address = paste0(school_name, ", ", qcaa_district, " QLD ", school_postcode)) 
+```
+
+```{r, message=FALSE}
+# ----- Geocode
+
+# Geocode 
+locations <- ggmap::mutate_geocode(locations, address)
+
+# Change Coordinate Reference System (CRS) to match map data
+locations <- sf::st_as_sf(x = locations, 
+                          coords = c("lon","lat"),
+                          # Extract CRS from map data
+                          crs = st_crs(school_sf)) %>% 
+  select(qcaa_school_id, school_name, doe_centre_code)
+
+# Combine data
+school_sf <- rbind(locations, school_sf) %>% 
+  arrange(qcaa_school_id) %>% 
+  remove_rownames() %>% 
+  distinct()
+```
+
+```{r}
+# Include school postcode and district
+school_sf <- school_sf %>% 
+  left_join(distinct(.data = mathsci_all,
+                     qcaa_school_id, doe_centre_code, school_postcode, qcaa_district),
+            by = c("doe_centre_code",  "qcaa_school_id")) %>% 
+  relocate(geometry, .after = qcaa_district)
+```
+
+
+```{r eval=FALSE}
+# --- Write sf object
+write_rds(school_sf, here::here("data/school_sf.rds"))
+```
+
