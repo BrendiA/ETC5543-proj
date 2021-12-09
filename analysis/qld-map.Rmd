@@ -16,8 +16,8 @@ library(leaflet.extras)
 library(ozmaps)
 library(sf)
 
-# Retrieve API key for Geocoding
-register_google(key = "AIzaSyBzrrkZd-mKctYuTu94Jxmx7pmijb-ZVgQ")
+# Requires Google API key
+# register_google(key = "")
 ```
 
 ```{r}
