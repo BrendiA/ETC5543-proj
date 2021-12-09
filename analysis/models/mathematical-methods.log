@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2022/dev) (preloaded format=pdflatex 2021.11.23)  23 NOV 2021 23:39
+This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2022/dev) (preloaded format=pdflatex 2021.11.23)  25 NOV 2021 16:42
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -670,124 +670,138 @@ LaTeX Font Info:    External font `lmex10' loaded for size
 [1
 
 {/Users/brendi/Library/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
+<mathematical-methods_files/figure-latex/math-mthd-eda-1.pdf, id=101, 641.39626
+pt x 496.85625pt>
+File: mathematical-methods_files/figure-latex/math-mthd-eda-1.pdf Graphic file 
+(type pdf)
+<use mathematical-methods_files/figure-latex/math-mthd-eda-1.pdf>
+Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-eda-
+1.pdf  used on input line 156.
+(pdftex.def)             Requested size: 469.7617pt x 363.8999pt.
 
 LaTeX Warning: Reference `fig:year-11-enrolments-all' on page 2 undefined on in
-put line 157.
+put line 171.
 
-<mathematical-methods_files/figure-latex/math-mthd-log-scale-1.pdf, id=96, 630.
-355pt x 485.815pt>
-File: mathematical-methods_files/figure-latex/math-mthd-log-scale-1.pdf Graphic
- file (type pdf)
-<use mathematical-methods_files/figure-latex/math-mthd-log-scale-1.pdf>
-Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-log-
-scale-1.pdf  used on input line 164.
-(pdftex.def)             Requested size: 469.75452pt x 362.0401pt.
 [2
 
 pdfTeX warning (ext4): destination with the same identifier (name{figure.1}) ha
 s been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.174 ... model}\label{unconditional-means-model}}
-                                                   <./mathematical-methods_file
-s/figure-latex/math-mthd-log-scale-1.pdf>]
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-91.
+l.172 
+       <./mathematical-methods_files/figure-latex/math-mthd-eda-1.pdf>]
+<mathematical-methods_files/figure-latex/math-mthd-log-scale-1.pdf, id=121, 630
+.355pt x 485.815pt>
+File: mathematical-methods_files/figure-latex/math-mthd-log-scale-1.pdf Graphic
+ file (type pdf)
+<use mathematical-methods_files/figure-latex/math-mthd-log-scale-1.pdf>
+Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-log-
+scale-1.pdf  used on input line 178.
+(pdftex.def)             Requested size: 469.75452pt x 362.0401pt.
+[3pdfTeX warning (ext4): destination with the same identifier (name{figure.2}) 
+has been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.204 
+       <./mathematical-methods_files/figure-latex/math-mthd-log-scale-1.pdf>]
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 2
+05.
 (/Users/brendi/Library/TinyTeX/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [3pdfTeX warning (ext4): destination with the same identifier (name{table.1})
+) [4pdfTeX warning (ext4): destination with the same identifier (name{table.1})
  has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.236 
+l.250 
       ]
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 2
-77.
+91.
 (/Users/brendi/Library/TinyTeX/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [4] [5] [6pdfTeX warning (ext4): destination with the same identifier (name{t
+) [5] [6] [7pdfTeX warning (ext4): destination with the same identifier (name{t
 able.2}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.390 \end{longtable}
-                     ] [7]
-Overfull \hbox (20.77933pt too wide) detected at line 414
+l.404 \end{longtable}
+                     ]
+Overfull \hbox (20.77933pt too wide) detected at line 428
 [][]
  []
 
 [8]
-<mathematical-methods_files/figure-latex/math-mthd-fixef-1.pdf, id=175, 644.407
+<mathematical-methods_files/figure-latex/math-mthd-fixef-1.pdf, id=193, 644.407
 5pt x 486.81876pt>
 File: mathematical-methods_files/figure-latex/math-mthd-fixef-1.pdf Graphic fil
 e (type pdf)
 <use mathematical-methods_files/figure-latex/math-mthd-fixef-1.pdf>
 Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-fixe
-f-1.pdf  used on input line 455.
+f-1.pdf  used on input line 469.
 (pdftex.def)             Requested size: 469.77443pt x 354.8919pt.
-<mathematical-methods_files/figure-latex/math-mthd-school-ranef-1.pdf, id=177, 
+[9]
+<mathematical-methods_files/figure-latex/math-mthd-school-ranef-1.pdf, id=201, 
 640.3925pt x 493.845pt>
 File: mathematical-methods_files/figure-latex/math-mthd-school-ranef-1.pdf Grap
 hic file (type pdf)
 <use mathematical-methods_files/figure-latex/math-mthd-school-ranef-1.pdf>
 Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-scho
-ol-ranef-1.pdf  used on input line 469.
-(pdftex.def)             Requested size: 469.75941pt x 362.2596pt.
-[9pdfTeX warning (ext4): destination with the same identifier (name{figure.2}) 
-has been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.475 
-       <./mathematical-methods_files/figure-latex/math-mthd-fixef-1.pdf>]
-<mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pdf, id=196
-, 640.3925pt x 493.845pt>
-File: mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pdf Gr
-aphic file (type pdf)
-<use mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pdf>
-Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-dist
-rcit-ranef-1.pdf  used on input line 480.
+ol-ranef-1.pdf  used on input line 483.
 (pdftex.def)             Requested size: 469.75941pt x 362.2596pt.
 [10pdfTeX warning (ext4): destination with the same identifier (name{figure.3})
  has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.486 
-       <./mathematical-methods_files/figure-latex/math-mthd-school-ranef-1.pdf>
-]
-<mathematical-methods_files/figure-latex/math-mthd-pred-1.pdf, id=210, 640.3925
-pt x 495.8525pt>
-File: mathematical-methods_files/figure-latex/math-mthd-pred-1.pdf Graphic file
- (type pdf)
-<use mathematical-methods_files/figure-latex/math-mthd-pred-1.pdf>
-Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-pred
--1.pdf  used on input line 494.
-(pdftex.def)             Requested size: 469.75941pt x 363.73221pt.
+l.489 
+       <./mathematical-methods_files/figure-latex/math-mthd-fixef-1.pdf>]
+<mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pdf, id=219
+, 640.3925pt x 493.845pt>
+File: mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pdf Gr
+aphic file (type pdf)
+<use mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pdf>
+Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-dist
+rcit-ranef-1.pdf  used on input line 494.
+(pdftex.def)             Requested size: 469.75941pt x 362.2596pt.
 [11pdfTeX warning (ext4): destination with the same identifier (name{figure.4})
  has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
 l.500 
-       <./mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pd
-f>] [12pdfTeX warning (ext4): destination with the same identifier (name{figure
-.5}) has been already used, duplicate ignored
+       <./mathematical-methods_files/figure-latex/math-mthd-school-ranef-1.pdf>
+]
+<mathematical-methods_files/figure-latex/math-mthd-pred-1.pdf, id=233, 640.3925
+pt x 495.8525pt>
+File: mathematical-methods_files/figure-latex/math-mthd-pred-1.pdf Graphic file
+ (type pdf)
+<use mathematical-methods_files/figure-latex/math-mthd-pred-1.pdf>
+Package pdftex.def Info: mathematical-methods_files/figure-latex/math-mthd-pred
+-1.pdf  used on input line 508.
+(pdftex.def)             Requested size: 469.75941pt x 363.73221pt.
+[12pdfTeX warning (ext4): destination with the same identifier (name{figure.5})
+ has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.503 \end{document}
+l.514 
+       <./mathematical-methods_files/figure-latex/math-mthd-distrcit-ranef-1.pd
+f>] [13pdfTeX warning (ext4): destination with the same identifier (name{figure
+.6}) has been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.517 \end{document}
                      <./mathematical-methods_files/figure-latex/math-mthd-pred-
 1.pdf>] (./mathematical-methods.aux)
 
 LaTeX Warning: There were undefined references.
 
 Package rerunfilecheck Info: File `mathematical-methods.out' has not changed.
-(rerunfilecheck)             Checksum: 98448E78EBC64564C3B6E2E4C1CEA89A;2999.
+(rerunfilecheck)             Checksum: 3A0BCDAB201E7834AE4B6ECB11A516EC;3298.
  ) 
 Here is how much of TeX's memory you used:
- 15265 strings out of 480288
- 248316 string characters out of 5895447
- 582131 words of memory out of 5000000
- 32679 multiletter control sequences out of 15000+600000
- 464560 words of font info for 127 fonts, out of 8000000 for 9000
+ 15285 strings out of 480288
+ 249060 string characters out of 5895447
+ 581374 words of memory out of 5000000
+ 32690 multiletter control sequences out of 15000+600000
+ 464726 words of font info for 129 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 60i,9n,63p,1017b,447s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 60i,9n,63p,1017b,451s stack positions out of 5000i,500n,10000p,200000b,80000s
 pdfTeX warning (dest): name{step-nine} has been referenced but does not exist
 , replaced by a fixed one
 
@@ -819,10 +833,10 @@ ic/lm/lmr17.pfb></Users/brendi/Library/TinyTeX/texmf-dist/fonts/type1/public/lm
 0.pfb></Users/brendi/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmsy10.pf
 b></Users/brendi/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmsy7.pfb></U
 sers/brendi/Library/TinyTeX/texmf-dist/fonts/type1/public/lm/lmtt10.pfb>
-Output written on mathematical-methods.pdf (12 pages, 361809 bytes).
+Output written on mathematical-methods.pdf (13 pages, 454902 bytes).
 PDF statistics:
- 313 PDF objects out of 1000 (max. 8388607)
- 255 compressed objects within 3 object streams
- 59 named destinations out of 1000 (max. 500000)
- 34970 words of extra memory for PDF output out of 35830 (max. 10000000)
+ 338 PDF objects out of 1000 (max. 8388607)
+ 276 compressed objects within 3 object streams
+ 63 named destinations out of 1000 (max. 500000)
+ 34983 words of extra memory for PDF output out of 35830 (max. 10000000)
 

@@ -323,7 +323,6 @@ model4.9 <- update(model4.8, . ~. - unit)
 model4.10 <- update(model4.8, . ~. - sector)
 ```
 
-
 ```{r phys-test-fixef}
 # ANOVA test
 model_anova <- anova(

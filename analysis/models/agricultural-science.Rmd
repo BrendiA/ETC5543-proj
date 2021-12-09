@@ -189,7 +189,9 @@ rownames(model0_AIC) <- c("Model0.0: Within schools",
 
 model0_AIC %>% 
   arrange(AIC) %>% 
-  kable(caption = "AIC values for all candidate models for Agricultural Science") %>% 
+  kable(caption = "AIC values for all candidate models for Agricultural Science",
+        booktabs = TRUE,
+        linesep = "") %>% 
   kable_styling(full_width = FALSE,
                 latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
@@ -438,7 +440,9 @@ save(bootstrapLRT, file = here::here("data/bootstrapLRT/agri-sci.rda"))
 load(here::here("data/bootstrapLRT/agri-sci.rda"))
 
 as_tibble(bootstrapLRT) %>% 
-  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model") %>% 
+  kable(caption = "Parametric Bootstrap to compare larger and smaller, nested model",
+        booktabs = TRUE,
+        linesep = "") %>% 
   kable_styling(full_width = FALSE,
                 latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
@@ -500,7 +504,10 @@ load(here::here("data/confint/agri-sci.rda"))
 as_tibble(confint_f) %>% 
   mutate(var = rownames(confint_f),
          .before = `2.5 %`) %>% 
-  kable(caption = "95% confidence intervals for fixed and random effects in the final model") %>% 
+  kable(caption = "95% confidence intervals for fixed and random effects in the final model",
+        booktabs = TRUE,
+        linesep = "",
+        format = "pandoc") %>% 
   kable_styling(full_width = FALSE,
                 latex_options = c("striped", "HOLD_position"),
                 bootstrap_options = c("hovered", "striped"))
