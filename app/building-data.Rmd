@@ -1,0 +1,754 @@
+---
+title: "Untitled"
+author: "Brendi Ang"
+date: "26/11/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggmap)
+library(janitor)
+library(leaflet)
+library(leaflet.extras)
+library(ozmaps)
+library(sf)
+
+# Set default theme for ggplot2 objects
+ggplot2::theme_set(theme_bw())
+```
+
+# Data
+
+```{r, include=FALSE, warning=FALSE}
+# Read-in data
+mathsci_all <- read_csv(here::here("data/mathsci_all.csv"),
+                        col_types = cols(doe_centre_code = col_factor()))
+
+# Convert data types
+mathsci_all <- mathsci_all %>% 
+  mutate(across(.cols = c(qcaa_subject_id, 
+                          subject_type,
+                          qcaa_school_id,
+                          sector,
+                          school_postcode,
+                          ),
+                ~ as.factor(.x))) 
+```
+
+```{r}
+# Remove schools that existed before year 2002 and not after
+mathsci_all <- mathsci_all %>% 
+  filter(!is.na(doe_centre_code)) 
+```
+
+```{r}
+# Convert to long format
+mathsci_all_long <- mathsci_all %>%
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments")
+```
+
+
+# Building polygons using SA4
+
+```{r}
+# Read-in dataset
+
+# Shape file of Australia's Statistical Area Level 4
+sa4 <- read_sf(here::here("data/SA4_2021_AUST_SHP_GDA2020/SA4_2021_AUST_GDA2020.shp")) 
+
+# School dataset (refer to qld-map.Rmd)
+school_sf <- readRDS(here::here("data/school_sf.rds")) 
+```
+
+```{r}
+sa4 <- sa4 %>% 
+  # Filetr to Queensland region
+  filter(STE_NAME21 == "Queensland") %>% 
+  filter(!SA4_NAME21 %in% c("No usual address (Qld)", "Migratory - Offshore - Shipping (Qld)")) %>% 
+  select(SA4_NAME21, geometry)
+
+# Convert school location coordinates to match that of SA4 data
+school_sf <- school_sf %>% sf::st_transform(crs = st_crs(sa4))
+
+# Join data to combine points and polygons
+school_sa4 <- sf::st_join(x = sa4,
+                          y = school_sf,
+                          join = st_intersects) 
+```
+
+```{r eval=FALSE}
+# Find postcode with multiple sa2 (incorrect)
+incorrect_sa4 <- school_sa4 %>%
+  as_tibble() %>% 
+  distinct(school_postcode, SA4_NAME21, qcaa_district) %>%
+  count(school_postcode, SA4_NAME21) %>%
+  filter(n >= 2) %>% 
+  pull(school_postcode)
+
+# Manually fix incorrect districts
+school_sa4 %>% 
+  filter(school_postcode %in% incorrect_sa4) %>% 
+  arrange(school_postcode) %>% 
+  select(qcaa_school_id, school_postcode, qcaa_district, SA4_NAME21, school_name) %>% 
+  mutate(qcaa_district = case_when(
+    school_postcode == "4109" ~ "Brisbane South",
+    school_postcode == "4151" ~ "Brisbane South",
+    school_postcode == "4211" ~ "Gold Coast",
+    # Moreton Bay (North) changed to Sunshine Coast
+    school_postcode %in% c("4505", "4508", "4510") ~ "Sunshine Coast",
+    # Moreton Bay (South) changed to Brisbane North
+    school_postcode %in% c("4509") ~ "Brisbane North",
+    TRUE ~ qcaa_district
+  ))
+```
+
+```{r}
+# Manually fix incorrect districts
+school_sa4 <- school_sa4 %>% 
+  mutate(qcaa_district = case_when(
+    school_postcode == "4109" ~ "Brisbane South",
+    school_postcode == "4151" ~ "Brisbane South",
+    school_postcode == "4211" ~ "Gold Coast",
+    # Moreton Bay (North) changed to Sunshine Coast
+    school_postcode %in% c("4505", "4508", "4510") ~ "Sunshine Coast",
+    # Moreton Bay (South) changed to Brisbane North
+    school_postcode %in% c("4509") ~ "Brisbane North",
+    TRUE ~ qcaa_district
+  ))
+```
+
+
+```{r}
+sa4_polygons <- school_sa4 %>% 
+  group_by(SA4_NAME21) %>% 
+  summarise(geometry = st_union(geometry)) 
+
+sa4_polygons %>% 
+  leaflet() %>% 
+  addProviderTiles(provider = "OpenStreetMap", group = "OSM") %>% 
+  addPolylines(color = I("black"),
+               weight = 2) %>% 
+  addPolygons(label = ~ paste0(SA4_NAME21),
+              color = I("white"),
+              opacity = 0)
+```
+
+```{r}
+# Remove dashes
+sa4_polygons <- sa4_polygons %>% 
+  mutate(SA4_NAME21 = str_remove_all(SA4_NAME21, " -")) 
+```
+
+```{r, eval=FALSE}
+sa4_polygons %>% write_rds(here::here("data/sa4_polygons.rds"))
+```
+
+# Leaflet 
+
+```{r}
+# Read-in data
+school_sf <- readRDS(here::here("data/school_sf.rds")) 
+
+sa4_polygons <- read_rds(here::here("data/sa4_polygons.rds"))
+```
+
+```{r}
+# --- Overlay groups 
+
+pal <-
+  leaflet::colorFactor(
+    palette = c(
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue",
+      "steelblue"
+    ),
+    levels = unique(school_sf$qcaa_district)
+  )
+
+# Brisbane Central
+bne_c_df <- school_sf %>% filter(qcaa_district == "Brisbane Central")
+
+# Brisbane East
+bne_e_df <- school_sf %>% filter(qcaa_district == "Brisbane East")
+
+# Brisbane South
+bne_s_df <- school_sf %>% filter(qcaa_district == "Brisbane South")
+
+# Gold Coast
+gc_df <- school_sf %>% filter(qcaa_district == "Gold Coast")
+
+# Brisbane Ipswich 
+bne_ips_df <- school_sf %>% filter(qcaa_district == "Brisbane Ipswich")
+
+# Brisbane North
+bne_n_df <- school_sf %>% filter(qcaa_district == "Brisbane North")
+
+# Sunshine Coast
+sun_c_df <- school_sf %>% filter(qcaa_district == "Sunshine Coast") 
+
+# Toowoomba
+too_df <- school_sf %>% filter(qcaa_district == "Toowoomba") 
+
+# Cairns
+cairns_df <- school_sf %>% filter(qcaa_district == "Cairns") 
+
+# Wide Bay
+wide_bay_df <- school_sf %>% filter(qcaa_district == "Wide Bay") 
+
+# Rockhampton
+rock_df <- school_sf %>% filter(qcaa_district == "Rockhampton") 
+
+# Mackay
+mack_df <- school_sf %>% filter(qcaa_district == "Mackay") 
+
+# Townsville
+town_df <- school_sf %>% filter(qcaa_district == "Townsville") 
+```
+
+```{r}
+school_sf %>% 
+  
+  leaflet() %>% 
+  
+  # --- Set default zoom 
+  setView(lng = 137,
+          lat = -9,
+          zoom = 5) %>% 
+  
+  # --- Set bounding box to show map of Queensland
+  fitBounds(lng1 = 137.994325, lat1 = -29.177873, 
+            lng2 = 153.552171, lat2 = -9.219937) %>% 
+  
+  # --- Overlay groups (allow user to select which districts to display)
+  
+  # Brisbane Central
+  addCircleMarkers(data = bne_c_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Brisbane Central") %>% 
+  # Brisbane East
+  addCircleMarkers(data = bne_e_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Brisbane East") %>%
+  # Brisbane South
+  addCircleMarkers(data = bne_s_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Brisbane South") %>%
+  # Gold Coast
+  addCircleMarkers(data = gc_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Gold Coast") %>%
+  # Brisbane Ipswich
+  addCircleMarkers(data = bne_ips_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Brisbane Ipswich") %>%
+  # Brisbane North
+  addCircleMarkers(data = bne_n_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Brisbane North") %>%
+  # Sunshine Coast
+  addCircleMarkers(data = sun_c_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Sunshine Coast") %>%
+  # Toowoomba
+  addCircleMarkers(data = too_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Toowoomba") %>%
+  # Cairns
+  addCircleMarkers(data = cairns_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Cairns") %>%
+  # Wide Bay
+  addCircleMarkers(data = wide_bay_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Wide Bay") %>%
+  # Rockhampton
+  addCircleMarkers(data = rock_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Rockhampton") %>%
+  # Mackay
+  addCircleMarkers(data = mack_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Mackay") %>%
+  # Townsville
+  addCircleMarkers(data = town_df,
+                   color = ~pal(qcaa_district),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name),
+                   group = "Townsville") %>%
+
+
+  # --- Overlay base groups (toggle between map provider tiles)
+
+  # Default: CartoDB
+  addProviderTiles("CartoDB", group = "CartoDB") %>%
+  # Open Street Map
+  addProviderTiles(provider = "OpenStreetMap", group = "OSM") %>%
+  # Esri
+  addProviderTiles("Esri", group = "Esri") %>%
+
+  # --- Add layering groups
+
+  addLayersControl(overlayGroups = unique(school_sf$qcaa_district),
+                   baseGroups = c("CartoDB", "OSM", "Esri")) %>%
+  
+  
+  # --- Add search feature options (Allow user to search for school)
+  
+  addMarkers(data = school_sf,
+             group = "schools",
+             label = school_sf$school_name,
+              # make custom icon so small it cannot be seen
+             icon = makeIcon(iconUrl = "http://leafletjs.com/examples/custom-icons/leaf-green.png",
+                             iconWidth = 1,
+                             iconHeight = 1)
+             ) %>%
+  addSearchFeatures(targetGroups = "schools",
+                    options = searchFeaturesOptions(zoom = 12,
+                                                    openPopup = TRUE,
+                                                    firstTipSubmit = TRUE,
+                                                    autoCollapse = TRUE)) %>%
+
+  # Allow reset to default view
+  leaflet.extras::addResetMapButton()
+```
+
+# Leaflet in app
+
+```{r}
+school_sf <- school_sf %>%
+  mutate(lon = sf::st_coordinates(.)[,1],
+         lat = sf::st_coordinates(.)[,2])
+```
+
+```{r}
+df <- school_sf %>% 
+  filter(school_name == "Rosewood State High School") 
+
+# If only one school selected
+df %>% 
+  leaflet() %>% 
+  
+  setView(lng = sf::st_coordinates(df)[,1],
+          lat = sf::st_coordinates(df)[,2],
+          zoom = 5) %>% 
+  
+  addProviderTiles("CartoDB", group = "CartoDB")
+```
+
+
+```{r}
+all_schools <- mathsci_all_long %>% 
+      filter(subject_name == "Agricultural Practices") %>% 
+      distinct(school_name) %>% 
+      pull()
+
+# All schools (in a given district) offering the subject
+map <- school_sf %>% 
+  filter(school_name %in% all_schools,
+         qcaa_district %in% unique(school_sf$qcaa_district))
+```
+
+```{r}
+map %>% 
+
+  leaflet() %>%
+
+  # --- Set bounding box to show map of selected schools
+  fitBounds(lng1 = min(map$lon), lat1 = min(map$lat),
+            lng2 = max(map$lon), lat2 = max(map$lat)) %>%
+  
+  
+  # --- Add points (allow user to select which districts to display)
+  
+  addCircleMarkers(data = map, # Reactive in app
+                   color = I("steelblue"),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name)) %>% 
+  
+  # --- Add polygons
+  
+  # Polygon lines
+  addPolylines(data = sa4_polygons,
+               color = I("black"),
+               weight = 2) %>% 
+  
+  # Set hover corresponding to the SA4 for each polygons
+  addPolygons(data = sa4_polygons, 
+              label = ~ paste0(SA4_NAME21),
+              color = I("white"),
+              opacity = 0) %>% 
+  
+  # --- Allow reset to default view
+  
+  leaflet.extras::addResetMapButton() %>% 
+  
+  # --- Overlay base groups (toggle between map provider tiles)
+
+  # Default: CartoDB
+  addProviderTiles("CartoDB", group = "CartoDB") %>%
+  
+  # Open Street Map
+  addProviderTiles(provider = "OpenStreetMap", group = "OSM") %>%
+  
+  # Esri
+  addProviderTiles("Esri", group = "Esri") %>%
+
+  # Add layering groups
+  addLayersControl(baseGroups = c("CartoDB", "OSM", "Esri")) %>%
+  
+  # --- Add search feature options (Allow user to search for school)
+  
+  addMarkers(data = map,
+             group = "schools",
+             label = map$school_name,
+             # make custom icon so small it cannot be seen
+             icon = makeIcon(
+               iconUrl = "http://leafletjs.com/examples/custom-icons/leaf-green.png",
+               iconWidth = 1,
+               iconHeight = 1)
+             ) %>%
+  addSearchFeatures(targetGroups = "schools",
+                    options = searchFeaturesOptions(zoom = 10,
+                                                    openPopup = TRUE,
+                                                    firstTipSubmit = TRUE,
+                                                    autoCollapse = TRUE)) 
+```
+
+```{r}
+school_sf %>% 
+  
+  leaflet() %>% 
+  
+  # --- Set bounding box to show map of Queensland
+  fitBounds(lng1 = 137.994325, lat1 = -29.177873, 
+            lng2 = 153.552171, lat2 = -9.219937) %>% 
+  
+  # --- Add polygons
+  
+  # Polygon lines
+  addPolylines(data = sa4_polygons,
+               color = I("black"),
+               weight = 2) %>% 
+  
+  # Set hover corresponding to the SA4 for each polygons
+  addPolygons(data = sa4_polygons, 
+              label = ~ paste0(SA4_NAME21),
+              color = I("white"),
+              opacity = 0) %>% 
+  
+  # --- Add points (allow user to select which districts to display)
+  
+  addCircleMarkers(data = school_sf, # Reactive in app
+                   color = I("steelblue"),
+                   radius = 1.5,
+                   popup = ~ paste0("<b>School</b>: ", school_name, "<br>",
+                                    "<b>District</b>: ", qcaa_district, "<br>",
+                                    "<b>Postcode</b>: ", school_postcode),
+                   label = ~ htmltools::htmlEscape(school_name)) %>% 
+
+
+  # --- Overlay base groups (toggle between map provider tiles)
+
+  # Default: CartoDB
+  addProviderTiles("CartoDB", group = "CartoDB") %>%
+  # Open Street Map
+  addProviderTiles(provider = "OpenStreetMap", group = "OSM") %>%
+  # Esri
+  addProviderTiles("Esri", group = "Esri") %>%
+
+  # --- Add layering groups
+
+  addLayersControl(baseGroups = c("CartoDB", "OSM", "Esri")) %>%
+  
+  
+  # --- Add search feature options (Allow user to search for school)
+  
+  addMarkers(data = school_sf,
+             group = "schools",
+             label = school_sf$school_name,
+             # make custom icon so small it cannot be seen
+             icon = makeIcon(
+               iconUrl = "http://leafletjs.com/examples/custom-icons/leaf-green.png",
+               iconWidth = 1,
+               iconHeight = 1)
+             ) %>%
+  addSearchFeatures(targetGroups = "schools",
+                    options = searchFeaturesOptions(zoom = 10,
+                                                    openPopup = TRUE,
+                                                    firstTipSubmit = TRUE,
+                                                    autoCollapse = TRUE)) %>%
+
+  # Allow reset to default view
+  leaflet.extras::addResetMapButton()
+```
+
+
+# Mathsci_complete
+
+```{r eval=FALSE}
+# Convert to long format
+mathsci_all_long <- mathsci_all %>%
+  pivot_longer(cols = c(year_11_enrolments, year_12_enrolments),
+               names_to = "unit",
+               values_to = "enrolments")
+
+# Fill missing values with NA
+mathsci_all_complete <- mathsci_all_long %>% 
+  # filter(subject_name == "Earth & Environmental Science") %>% 
+  group_by(qcaa_school_id, subject_name, unit) %>%
+  # Fill missing years with NA to skip when plotting line plot
+  tidyr::complete(completion_year = min(completion_year):max(completion_year),
+           fill = list(value = NA)) %>% 
+  ungroup()
+```
+
+```{r, eval=FALSE}
+write_csv(mathsci_all_complete, here::here("data/mathsci_all_complete.csv"))
+```
+
+
+```{r}
+mathsci_complete <- read_csv(here::here("data/mathsci_all_complete.csv"),
+                         col_types = cols(doe_centre_code = col_factor()))
+
+mathsci_complete <- mathsci_complete %>% 
+  mutate(across(.cols = c(qcaa_subject_id, 
+                          subject_type,
+                          qcaa_school_id,
+                          sector,
+                          school_postcode,
+                          unit
+  ),
+  ~ as.factor(.x))) 
+```
+
+
+
+
+
+
+## Plotly
+
+```{r}
+pp <- mathsci_complete %>% 
+  filter(subject_name == "Agricultural Practices" & 
+         unit == "year_12_enrolments" &
+         qcaa_district %in% unique(mathsci_complete$qcaa_district)) %>%
+  ggplot(aes(x = completion_year,
+                y = enrolments,
+                group = qcaa_school_id)) +
+  geom_line(colour = "grey80",
+            alpha = 0.3) +
+  geom_line(data = filter(mathsci_complete,
+                           (subject_name == "Agricultural Practices" & 
+                           unit == "year_12_enrolments" &
+                           school_name == "Boonah State High School" &
+                           qcaa_district == "Brisbane Ipswich") %>% 
+                          replace_na(T)),
+            aes(text = paste0("<b>Expected Graduation</b>: ", completion_year, "<br>",
+                              "<b>School</b>: ", school_name, "<br>",
+                              "<b>Enrolments</b>: ", enrolments)),
+            colour = "steelblue",
+            size = 0.7) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(legend.position = "none") +
+  labs(title = "Time plot" ,
+       x = "Completion Year",
+       y = "Enrolments")
+```
+
+
+
+```{r}
+df <- filter(mathsci_complete, 
+         (subject_name == "Agricultural Practices" 
+          & unit == "year_12_enrolments" 
+          & school_name == "Boonah State High School" 
+          & qcaa_district == "Brisbane Ipswich")) %>% 
+           tidyr::complete(completion_year = min(completion_year):max(completion_year),
+                           fill = list(value = NA))
+
+pp <- mathsci_complete %>% 
+  filter(subject_name == "Agricultural Practices" &
+         unit == "year_12_enrolments" &
+         qcaa_district %in% unique(mathsci_complete$qcaa_district)) %>%
+  ggplot(aes(x = completion_year,
+             y = enrolments)) +
+  geom_line(aes(group = qcaa_school_id),
+            colour = "grey80",
+            alpha = 0.3) +
+  geom_line(data = df,
+            aes(text = paste0(df$completion_year)),
+            colour = "steelblue",
+            size = 0.7) +
+  scale_x_continuous(breaks = seq(1992, 2022, by = 2),
+                     labels = seq(1992, 2022, by = 2)) +
+  theme(legend.position = "none") +
+  labs(title = "Time plot" ,
+       x = "Completion Year",
+       y = "Enrolments")
+```
+
+```{r}
+plotly::ggplotly(pp,
+                 tooltip = "text") %>% 
+  config(displayModeBar = F) %>%
+  layout(hovermode = 'x')
+```
+
+## Plot_ly
+
+```{r}
+mathsci_complete %>% 
+  filter(subject_name == "Agricultural Practices" & 
+         unit == "year_12_enrolments" &
+         qcaa_district %in% unique(mathsci_complete$qcaa_district)) %>% 
+  group_by(qcaa_school_id) %>% 
+  plot_ly(x = ~ completion_year,
+          y = ~ enrolments,
+          hoverinfo = "text",
+          text = ~ paste0("<b>Expected Graduation</b>: ", completion_year, "<br>",
+                              "<b>School</b>: ", school_name, "<br>",
+                              "<b>Enrolments</b>: ", enrolments),
+          showlegend = FALSE) %>% 
+  add_lines(color = I("grey80"),
+            alpha = 0.4,
+            hoverinfo = "none"
+            ) %>% 
+  ungroup() %>% 
+  add_lines(data = filter(mathsci_complete,
+                          subject_name == "Agricultural Practices" & 
+                          unit == "year_12_enrolments" &
+                          school_name == "Boonah State High School"),
+            # color = ~ school_name,
+            color = I("steelblue")) %>% 
+  layout(hovermode = "compare",
+         xaxis = list(title = "Completion year",
+                      tickvals = seq(1992, 2022, by = 2)),
+         yaxis = list(title = "Enrolments"))
+```
+
+
+```{r}
+df <- mathsci_complete %>% 
+  filter(subject_name == "Agricultural Practices" & 
+         unit == "year_12_enrolments" &
+         qcaa_district %in% unique(qcaa_district)) %>% 
+  group_by(qcaa_school_id)
+
+selected <- mathsci_complete %>% 
+  filter(subject_name == "Agricultural Practices" 
+         & unit == "year_12_enrolments" 
+         & school_name == "Boonah State High School") %>% 
+  tidyr::complete(completion_year = min(completion_year):max(completion_year),
+                  fill = list(value = NA))
+
+
+plot_ly(x = ~ completion_year,
+          y = ~ enrolments,
+          hoverinfo = "text",
+          showlegend = FALSE,
+          text = ~ paste0("<b>Expected Graduation</b>: ", completion_year, "<br>",
+                          "<b>School</b>: ", school_name, "<br>",
+                          "<b>District</b>: ", qcaa_district, "<br>",
+                          "<b>Enrolments</b>: ", enrolments)
+          ) %>% 
+  add_lines(data = df,
+            color = I("grey80"),
+            alpha = 0.4,
+            hoverinfo = "none"
+            )  %>%
+  add_lines(data = selected,
+            color = I("steelblue")) %>% 
+  layout(hovermode = "x",
+         xaxis = list(title = "Completion year",
+                      tickvals = seq(1992, 2022, by = 2)),
+         yaxis = list(title = "Enrolments"))
+```
+
+
+
+
+
